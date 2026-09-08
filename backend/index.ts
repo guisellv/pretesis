@@ -1,1 +1,0 @@
-console.log("¡El servidor de la agenda comunitaria está iniciando!");
