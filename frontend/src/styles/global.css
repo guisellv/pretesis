@@ -1,0 +1,84 @@
+:root {
+    font-family: Georgia, "Times New Roman", serif;
+    color: #22343a;
+    background: #f3eee7;
+}
+
+body {
+    margin: 0;
+    min-width: 320px;
+}
+
+main {
+    max-width: 28rem;
+    margin: 4rem auto;
+    padding: 2rem;
+    background: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 10%);
+}
+
+form {
+    display: grid;
+    gap: 1rem;
+}
+
+label {
+    display: grid;
+    gap: 0.35rem;
+}
+
+input,
+button {
+    padding: 0.65rem;
+    font: inherit;
+}
+
+button {
+    cursor: pointer;
+}
+
+.empty-panel-page {
+    max-width: 72rem;
+    margin: 3rem auto;
+}
+
+.empty-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.empty-panel-header h1 {
+    margin: 0;
+}
+
+.panel-label {
+    margin: 0 0 0.4rem;
+    color: #d46f4d;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.empty-panel {
+    min-height: 28rem;
+    border: 1px solid #dfd1c1;
+    border-radius: 0.75rem;
+    background: #fffdf9;
+    box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 8%);
+}
+
+@media (max-width: 600px) {
+    .empty-panel-page {
+        margin: 1rem;
+    }
+
+    .empty-panel-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
