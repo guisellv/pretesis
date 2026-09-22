@@ -41,7 +41,7 @@
   },
   "scripts": {
     "dev": "npm --prefix backend run dev",
-    "dev:frontend": "vite --port 3000",
+    "dev:frontend": "vite --port 4173",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

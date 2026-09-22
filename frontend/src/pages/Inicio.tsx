@@ -18,7 +18,7 @@ const eventosPrueba = [
         end: new Date(2026, 8, 16, 20, 0),
     },
     {
-        title: 'Reunión Directiva',
+        title: 'Reunion Directiva',
         start: new Date(2026, 8, 18, 10, 0),
         end: new Date(2026, 8, 18, 11, 30),
     }
@@ -60,20 +60,14 @@ export default function PanelPrincipal({ nombreUsuario, onLogout }: { nombreUsua
 
     return (
         <div style={{ display: 'flex', height: '100vh', width: '100vw', fontFamily: 'sans-serif' }}>
-            
-            {/* PANEL LATERAL */}
             <div style={{ width: '280px', backgroundColor: '#2C3E50', color: 'white', padding: '20px', display: 'flex', flexDirection: 'column' }}>
                 <h2 style={{ borderBottom: '1px solid #455A64', paddingBottom: '15px' }}>Agenda Comunitaria</h2>
                 <p>👤 Hola, {nombreUsuario}</p>
 
                 <div style={{ marginTop: '30px' }}>
-                    <button 
-                        onClick={() => setMenuAbierto(!menuAbierto)}
-                        style={{ width: '100%', padding: '12px', backgroundColor: '#34495E', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', textAlign: 'left', fontWeight: 'bold' }}
-                    >
+                    <button onClick={() => setMenuAbierto(!menuAbierto)} style={{ width: '100%', padding: '12px', backgroundColor: '#34495E', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', textAlign: 'left', fontWeight: 'bold' }}>
                         ⚙️ Gestión de Grupos {menuAbierto ? '▴' : '▾'}
                     </button>
-                    
                     {menuAbierto && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px', paddingLeft: '15px' }}>
                             <button onClick={abrirCrearGrupo} style={{ padding: '8px', background: 'transparent', color: '#ECF0F1', border: '1px solid #7F8C8D', borderRadius: '4px', cursor: 'pointer' }}>➕ Crear nuevo grupo</button>
@@ -87,18 +81,10 @@ export default function PanelPrincipal({ nombreUsuario, onLogout }: { nombreUsua
                         <h3 style={{ marginTop: 0 }}>Crear grupo</h3>
                         <label style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                             Nombre del grupo
-                            <input
-                                type="text"
-                                value={nombreGrupo}
-                                onChange={(evento) => setNombreGrupo(evento.target.value)}
-                                placeholder="Ej: Junta de vecinos"
-                                style={{ padding: '8px', borderRadius: '4px', border: 'none' }}
-                            />
+                            <input type="text" value={nombreGrupo} onChange={(evento) => setNombreGrupo(evento.target.value)} placeholder="Ej: Junta de vecinos" style={{ padding: '8px', borderRadius: '4px', border: 'none' }} />
                         </label>
                         <p style={{ marginBottom: '5px' }}>Código de acceso</p>
-                        <strong style={{ display: 'block', padding: '10px', backgroundColor: '#ECF0F1', color: '#2C3E50', textAlign: 'center', letterSpacing: '4px' }}>
-                            {codigoGrupo}
-                        </strong>
+                        <strong style={{ display: 'block', padding: '10px', backgroundColor: '#ECF0F1', color: '#2C3E50', textAlign: 'center', letterSpacing: '4px' }}>{codigoGrupo}</strong>
                         <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
                             <button type="submit" disabled={!nombreGrupo.trim()} style={{ flex: 1, padding: '8px', cursor: 'pointer' }}>Guardar</button>
                             <button type="button" onClick={cerrarCrearGrupo} style={{ padding: '8px', cursor: 'pointer' }}>Cerrar</button>
@@ -112,7 +98,6 @@ export default function PanelPrincipal({ nombreUsuario, onLogout }: { nombreUsua
                 </div>
             </div>
 
-            {/* ÁREA PRINCIPAL CON EL CALENDARIO */}
             <div style={{ flex: 1, backgroundColor: '#ECF0F1', padding: '30px', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ backgroundColor: 'white', flex: 1, borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', padding: '20px' }}>
                     <Calendar
