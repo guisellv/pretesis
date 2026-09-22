@@ -27,6 +27,7 @@ jobs:
       - name: Inyectar variables de entorno Backend
         run: |
           cp ~/backend.env ./backend/.env
+          grep -q "^DATABASE_URL=" ./backend/.env
 
       - name: Reiniciar Backend con PM2
         run: |
