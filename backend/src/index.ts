@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import authRoutes from './routes/login.routes';
 import gruposRoutes from './routes/grupos.routes';
+import reunionesRoutes from './routes/reuniones.routes';
 import { pool } from './config/database';
 
 const app = express();
@@ -19,6 +20,7 @@ app.get('/api/health', (req: Request, res: Response) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/grupos', gruposRoutes);
+app.use('/api/reuniones', reunionesRoutes);
 
 async function iniciarServidor() {
     try {
@@ -29,6 +31,17 @@ async function iniciarServidor() {
                 grupo_id INTEGER NOT NULL REFERENCES grupos(id) ON DELETE CASCADE,
                 rol VARCHAR(50) NOT NULL DEFAULT 'Lector',
                 PRIMARY KEY (usuario_id, grupo_id)
+            )
+        `);
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS reuniones (
+                id SERIAL PRIMARY KEY,
+                grupo_id INTEGER NOT NULL REFERENCES grupos(id) ON DELETE CASCADE,
+                titulo VARCHAR(150) NOT NULL,
+                descripcion TEXT NOT NULL DEFAULT '',
+                fecha_inicio TIMESTAMP NOT NULL,
+                fecha_fin TIMESTAMP NOT NULL,
+                CONSTRAINT reuniones_fechas_validas CHECK (fecha_fin > fecha_inicio)
             )
         `);
         await pool.query('ALTER TABLE users ALTER COLUMN rut DROP NOT NULL');

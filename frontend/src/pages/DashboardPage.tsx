@@ -50,7 +50,13 @@ export default function DashboardPage({ nombreUsuario, usuarioId, onLogout }: Da
             />
             <main className="panel-main">
                 <div className="calendar-frame">
-                    <Calendar nombreGrupo={grupoSeleccionado?.nombre} />
+                    <Calendar
+                        nombreGrupo={grupoSeleccionado?.nombre}
+                        codigoGrupo={grupoSeleccionado?.codigo_acceso}
+                        esAdministrador={grupoSeleccionado?.rol?.toLowerCase() === 'administrador'}
+                        grupoId={grupoSeleccionado?.id ?? null}
+                        usuarioId={usuarioId}
+                    />
                 </div>
             </main>
         </div>

@@ -91,7 +91,7 @@ export default function Panellateral({
 
     const manejarUnirse = async () => {
         if (!codigoGrupo.trim()) {
-            setError("Escribe el código del grupo.");
+            setError("Escribe el código.");
             return;
         }
 

@@ -4,6 +4,7 @@ export type Grupo = {
     id: number;
     nombre: string;
     codigo_acceso: string;
+    rol?: string;
 };
 
 type CrearGrupoResponse = {

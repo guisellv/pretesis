@@ -12,7 +12,7 @@ export async function listarGrupos(req: Request, res: Response): Promise<any> {
         }
 
         const result = await pool.query(
-            `SELECT g.id, g.nombre, g.codigo_acceso
+            `SELECT g.id, g.nombre, g.codigo_acceso, ug.rol
              FROM grupos g
              INNER JOIN usuarios_grupos ug ON ug.grupo_id = g.id
              WHERE ug.usuario_id = $1

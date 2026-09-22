@@ -5,34 +5,6 @@ import DashboardPage from './pages/DashboardPage';
 function App() {
     const [nombre, setNombre] = useState(() => localStorage.getItem('usuarioNombre') ?? '');
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     const [usuarioId, setUsuarioId] = useState<number | null>(() => {
         const usuarioGuardado = localStorage.getItem('usuarioId');
         return usuarioGuardado ? Number(usuarioGuardado) : null;
