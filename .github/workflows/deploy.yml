@@ -9,7 +9,7 @@ jobs:
 deploy:
 runs-on: self-hosted
 
-
+```
 steps:
   - name: Descargar el código
     uses: actions/checkout@v4
@@ -20,6 +20,12 @@ steps:
       cd backend
       npm install
 
+  - name: Compilar Backend
+    run: |
+      source ~/.nvm/nvm.sh
+      cd backend
+      npm run build
+
   - name: Inyectar variables de entorno Backend
     run: cp ~/backend.env ./backend/.env
 
@@ -27,7 +33,6 @@ steps:
     run: |
       source ~/.nvm/nvm.sh
       cd backend
-      setsid pm2 restart api-backend --update-env || setsid pm2 start index.js --name "api-backend"
+      setsid pm2 restart api-backend --update-env || setsid pm2 start dist/index.js --name "api-backend"
       pm2 save
-
-
+```
