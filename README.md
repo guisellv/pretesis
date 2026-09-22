@@ -10,7 +10,7 @@ Esta plataforma web fue diseñada como una solución colaborativa específica pa
 
 El sistema está diseñado para reducir la fricción tecnológica y asegurar la integridad de los datos comunitarios:
 
-*   👥 **Acceso Simplificado:** Sistema de autenticación de baja fricción mediante códigos alfanuméricos únicos, eliminando la barrera del correo electrónico para usuarios de distintas edades.
+*   👥 **Acceso Simplificado:** Sistema de cación de baja fricción mediante códigos alfanuméricos únicos, eliminando la barrera del correo electrónico para usuarios de distintas edades.
 *   📝 **Módulo "Actas Vivas":** Motor central vinculado a un calendario de reuniones que permite la redacción, edición y gestión estructurada de los acuerdos y convenios en tiempo real.
 *   🔍 **Motor de Trazabilidad Inmutable:** Registro automático y auditable en la base de datos de cada modificación (quién, cuándo y qué se alteró), promoviendo la rendición de cuentas.
 *   🔐 **Control de Acceso (RBAC):** Gestión de roles diferenciados entre Administradores, Secretarios y Lectores, delimitando permisos según las funciones dentro de la agrupación.
