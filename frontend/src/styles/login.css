@@ -1,0 +1,83 @@
+.auth-shell {
+    display: grid;
+    place-items: center;
+    padding: 2rem;
+    background: #F6F2F6;
+}
+
+.auth-card {
+    width: min(100%, 27rem);
+    padding: 2.5rem;
+    border: 1px solid #B7A7AE;
+    border-radius: 1rem;
+    background: #ffffff;
+    box-shadow: 0 1rem 3rem rgb(28 37 44 / 12%);
+}
+
+.auth-card h1 {
+    margin: 0 0 0.5rem;
+    color: #1C252C;
+}
+
+.auth-card h2 {
+    margin: 0 0 1.5rem;
+    color: #58545B;
+    font-size: 1.15rem;
+    font-weight: 500;
+}
+
+.auth-card form {
+    display: grid;
+    gap: 1rem;
+}
+
+.auth-card label {
+    display: grid;
+    gap: 0.4rem;
+    color: #1C252C;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.auth-card input {
+    width: 100%;
+    padding: 0.8rem 0.9rem;
+    border: 1px solid #B7A7AE;
+    border-radius: 0.5rem;
+    outline: none;
+    background: #F6F2F6;
+}
+
+.auth-card input:focus {
+    border-color: #58545B;
+    box-shadow: 0 0 0 3px rgb(88 84 91 / 15%);
+}
+
+.auth-submit {
+    margin-top: 0.5rem;
+    padding: 0.8rem;
+    border: 0;
+    border-radius: 0.5rem;
+    background: #58545B;
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.auth-submit:hover {
+    background: #1C252C;
+}
+
+.auth-message {
+    min-height: 1.5rem;
+    color: #8a514b;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.auth-switch {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #58545B;
+    text-decoration: underline;
+}
