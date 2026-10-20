@@ -5,12 +5,13 @@ import {
     actualizarReunion,
     eliminarReunion,
 } from '../controllers/reuniones.controller';
+import { requireAuth, requireAdmin } from '../middleware';
 
 const router = Router();
 
-router.get('/', listarReuniones);
-router.post('/', crearReunion);
-router.put('/:id', actualizarReunion);
-router.delete('/:id', eliminarReunion);
+router.get('/', requireAuth, listarReuniones);
+router.post('/', requireAuth, requireAdmin, crearReunion);
+router.put('/:id', requireAuth, requireAdmin, actualizarReunion);
+router.delete('/:id', requireAuth, requireAdmin, eliminarReunion);
 
 export default router;
