@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar';
+import axios from 'axios';
+import {
+    Calendar as BigCalendar,
+    dateFnsLocalizer,
+    type ToolbarProps,
+} from 'react-big-calendar';
 import { format } from 'date-fns/format';
 import { parse } from 'date-fns/parse';
 import { startOfWeek } from 'date-fns/startOfWeek';
@@ -21,6 +26,20 @@ const localizer = dateFnsLocalizer({
     getDay,
     locales: { es },
 });
+
+function CalendarToolbar({ label, onNavigate }: ToolbarProps) {
+    return (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: '8px' }}>
+            <button type="button" onClick={() => onNavigate('PREV')}>
+                Anterior
+            </button>
+            <strong style={{ fontSize: '1rem', textAlign: 'center' }}>{label}</strong>
+            <button type="button" onClick={() => onNavigate('NEXT')}>
+                Siguiente
+            </button>
+        </div>
+    );
+}
 
 type CalendarProps = {
     nombreGrupo?: string;
@@ -70,10 +89,15 @@ export function Calendar({
     const [modalAbierto, setModalAbierto] = useState(false);
     const [reunionEditada, setReunionEditada] = useState<Reunion | null>(null);
     const [formulario, setFormulario] = useState<FormularioReunion>(formularioVacio);
+    const [partesHora, setPartesHora] = useState({ hora: '', minuto: '' });
     const [error, setError] = useState('');
+    const [errorCarga, setErrorCarga] = useState('');
     const [guardando, setGuardando] = useState(false);
+    const [fechaActual, setFechaActual] = useState(new Date());
 
     useEffect(() => {
+        setErrorCarga('');
+
         if (grupoId === null || usuarioId === null) {
             setReuniones([]);
             return;
@@ -81,31 +105,64 @@ export function Calendar({
 
         listarReuniones(grupoId, usuarioId)
             .then(setReuniones)
-            .catch(() => setReuniones([]));
+            .catch((errorDesconocido: unknown) => {
+                setReuniones([]);
+                const mensaje = axios.isAxiosError(errorDesconocido)
+                    ? errorDesconocido.response?.data?.error
+                    : null;
+                setErrorCarga(mensaje || 'No se pudieron cargar las reuniones. Revisa la conexión y vuelve a intentarlo.');
+                console.error('Error al cargar reuniones:', errorDesconocido);
+            });
     }, [grupoId, usuarioId]);
 
     const abrirNuevaReunion = () => {
         setReunionEditada(null);
         setFormulario(formularioVacio);
+        setPartesHora({ hora: '', minuto: '' });
         setError('');
         setModalAbierto(true);
     };
 
     const abrirEditarReunion = (reunion: Reunion) => {
         setReunionEditada(reunion);
+        const fechaHora = fechaHoraParaFormulario(new Date(reunion.fecha_inicio));
         setFormulario({
             titulo: reunion.titulo,
             descripcion: reunion.descripcion,
-            ...fechaHoraParaFormulario(new Date(reunion.fecha_inicio)),
+            ...fechaHora,
+        });
+        setPartesHora({
+            hora: fechaHora.hora.slice(0, 2),
+            minuto: fechaHora.hora.slice(3, 5),
         });
         setError('');
         setModalAbierto(true);
+    };
+
+    const actualizarParteHora = (parte: 'hora' | 'minuto', valor: string) => {
+        const valorLimpio = valor.replace(/\D/g, '').slice(0, 2);
+        const nuevasPartes = { ...partesHora, [parte]: valorLimpio };
+        setPartesHora(nuevasPartes);
+        setFormulario((actual) => ({
+            ...actual,
+            hora: nuevasPartes.hora && nuevasPartes.minuto
+                ? `${nuevasPartes.hora.padStart(2, '0')}:${nuevasPartes.minuto.padStart(2, '0')}`
+                : '',
+        }));
+    };
+
+    const ajustarParteHora = (parte: 'hora' | 'minuto', cambio: number) => {
+        const limite = parte === 'hora' ? 24 : 60;
+        const actual = Number(partesHora[parte] || 0);
+        const siguiente = (actual + cambio + limite) % limite;
+        actualizarParteHora(parte, String(siguiente).padStart(2, '0'));
     };
 
     const cerrarModal = () => {
         setModalAbierto(false);
         setReunionEditada(null);
         setFormulario(formularioVacio);
+        setPartesHora({ hora: '', minuto: '' });
         setError('');
     };
 
@@ -179,6 +236,7 @@ export function Calendar({
         start: new Date(reunion.fecha_inicio),
         end: new Date(reunion.fecha_fin),
     }));
+    const soloLectura = reunionEditada !== null && !esAdministrador;
 
     return (
         <>
@@ -201,29 +259,42 @@ export function Calendar({
                 )}
             </div>
 
+            {errorCarga && <p className="form-error">{errorCarga}</p>}
+            {!errorCarga && grupoId !== null && reuniones.length === 0 && (
+                <p>No hay reuniones registradas en este grupo.</p>
+            )}
+
             <BigCalendar
                 localizer={localizer}
                 events={eventos}
                 startAccessor="start"
                 endAccessor="end"
                 culture="es"
-                toolbar={false}
-                onSelectEvent={(evento) => {
-                    if (esAdministrador) abrirEditarReunion(evento as CalendarEvent);
-                }}
+                date={fechaActual}
+                defaultView="month"
+                views={['month', 'week', 'day', 'agenda']}
+                toolbar={true}
+                components={{ toolbar: CalendarToolbar }}
+                onNavigate={(nuevaFecha) => setFechaActual(nuevaFecha)}
+                onSelectEvent={(evento) => abrirEditarReunion(evento as CalendarEvent)}
                 style={{ height: '100%' }}
             />
 
             {modalAbierto && (
                 <div className="modal-overlay">
                     <div className="modal-box meeting-modal">
-                        <h3>{reunionEditada ? 'Editar reunión' : 'Crear reunión'}</h3>
+                        <h3>
+                            {reunionEditada
+                                ? soloLectura ? 'Información de reunión' : 'Editar reunión'
+                                : 'Crear reunión'}
+                        </h3>
 
                         <label>
                             Título
                             <input
                                 type="text"
                                 value={formulario.titulo}
+                                disabled={soloLectura}
                                 onChange={(evento) => setFormulario({ ...formulario, titulo: evento.target.value })}
                                 placeholder="Ej: Reunión de coordinación"
                             />
@@ -233,48 +304,101 @@ export function Calendar({
                             Descripción
                             <textarea
                                 value={formulario.descripcion}
+                                disabled={soloLectura}
                                 onChange={(evento) => setFormulario({ ...formulario, descripcion: evento.target.value })}
                                 placeholder="Detalles de la reunión"
                                 rows={3}
                             />
                         </label>
 
-                        <label>
-                            Fecha
-                            <input
-                                type="date"
-                                value={formulario.fecha}
-                                onChange={(evento) => setFormulario({ ...formulario, fecha: evento.target.value })}
-                            />
-                        </label>
+                        <div className="meeting-date-time">
+                            <label>
+                                Fecha
+                                <input
+                                    type="date"
+                                    value={formulario.fecha}
+                                    disabled={soloLectura}
+                                    onChange={(evento) => setFormulario({ ...formulario, fecha: evento.target.value })}
+                                />
+                            </label>
 
-                        <label>
-                            Hora
-                            <input
-                                type="text"
-                                inputMode="numeric"
-                                maxLength={5}
-                                value={formulario.hora}
-                                onChange={(evento) => setFormulario({ ...formulario, hora: evento.target.value })}
-                                placeholder="14:30"
-                            />
-                        </label>
+                            <label>
+                                Hora
+                                <div className="time-picker">
+                                    <div className="time-picker-unit">
+                                        <button
+                                            type="button"
+                                            className="time-step-button"
+                                            aria-label="Disminuir hora"
+                                            disabled={soloLectura}
+                                            onClick={() => ajustarParteHora('hora', -1)}
+                                        >▼</button>
+                                        <input
+                                            className="time-value"
+                                            type="number"
+                                            min="0"
+                                            max="23"
+                                            value={partesHora.hora}
+                                            disabled={soloLectura}
+                                            placeholder="HH"
+                                            onChange={(evento) => actualizarParteHora('hora', evento.target.value)}
+                                        />
+                                        <button
+                                            type="button"
+                                            className="time-step-button"
+                                            aria-label="Aumentar hora"
+                                            disabled={soloLectura}
+                                            onClick={() => ajustarParteHora('hora', 1)}
+                                        >▲</button>
+                                    </div>
+                                    <span aria-hidden="true">:</span>
+                                    <div className="time-picker-unit">
+                                        <button
+                                            type="button"
+                                            className="time-step-button"
+                                            aria-label="Disminuir minutos"
+                                            disabled={soloLectura}
+                                            onClick={() => ajustarParteHora('minuto', -5)}
+                                        >▼</button>
+                                        <input
+                                            className="time-value"
+                                            type="number"
+                                            min="0"
+                                            max="59"
+                                            value={partesHora.minuto}
+                                            disabled={soloLectura}
+                                            placeholder="MM"
+                                            onChange={(evento) => actualizarParteHora('minuto', evento.target.value)}
+                                        />
+                                        <button
+                                            type="button"
+                                            className="time-step-button"
+                                            aria-label="Aumentar minutos"
+                                            disabled={soloLectura}
+                                            onClick={() => ajustarParteHora('minuto', 5)}
+                                        >▲</button>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
 
 
                         {error && <p className="form-error">{error}</p>}
 
-                        <button type="button" className="primary-button" onClick={guardarReunion} disabled={guardando}>
-                            {guardando ? 'Guardando...' : 'Guardar reunión'}
-                        </button>
+                        {!soloLectura && (
+                            <button type="button" className="primary-button" onClick={guardarReunion} disabled={guardando}>
+                                {guardando ? 'Guardando...' : 'Guardar reunión'}
+                            </button>
+                        )}
 
-                        {reunionEditada && (
+                        {reunionEditada && esAdministrador && (
                             <button type="button" className="danger-button" onClick={borrarReunion} disabled={guardando}>
                                 Eliminar reunión
                             </button>
                         )}
 
                         <button type="button" className="secondary-button" onClick={cerrarModal}>
-                            Cancelar
+                            {soloLectura ? 'Cerrar' : 'Cancelar'}
                         </button>
                     </div>
                 </div>

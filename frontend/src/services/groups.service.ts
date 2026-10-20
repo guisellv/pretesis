@@ -45,3 +45,19 @@ export async function listarGrupos(usuarioId: number) {
 
     return data.grupos;
 }
+
+export type Integrante = {
+    id: number;
+    nombre: string;
+    rol: string;
+};
+
+type ListarIntegrantesResponse = {
+    integrantes: Integrante[];
+};
+
+export async function listarIntegrantes(grupoId: number) {
+    const { data } = await api.get<ListarIntegrantesResponse>(`/grupos/${grupoId}/integrantes`);
+
+    return data.integrantes;
+}

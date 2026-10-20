@@ -1,5 +1,11 @@
-import { useState } from "react";
-import { crearGrupo, unirseGrupo, type Grupo } from "../services/groups.service";
+import { useEffect, useState } from "react";
+import {
+    crearGrupo,
+    listarIntegrantes,
+    unirseGrupo,
+    type Grupo,
+    type Integrante,
+} from "../services/groups.service";
 
 type PanellateralProps = {
     nombreUsuario: string;
@@ -41,6 +47,35 @@ export default function Panellateral({
     const [error, setError] = useState("");
     const [guardando, setGuardando] = useState(false);
     const [codigoGrupo, setCodigoGrupo] = useState("");
+    const [integrantes, setIntegrantes] = useState<Integrante[]>([]);
+    const [cargandoIntegrantes, setCargandoIntegrantes] = useState(false);
+
+    const grupoSeleccionado = grupos.find((grupo) => grupo.id === grupoSeleccionadoId) ?? null;
+
+    useEffect(() => {
+        if (grupoSeleccionadoId === null) {
+            setIntegrantes([]);
+            return;
+        }
+
+        let cancelado = false;
+        setCargandoIntegrantes(true);
+
+        listarIntegrantes(grupoSeleccionadoId)
+            .then((lista) => {
+                if (!cancelado) setIntegrantes(lista);
+            })
+            .catch(() => {
+                if (!cancelado) setIntegrantes([]);
+            })
+            .finally(() => {
+                if (!cancelado) setCargandoIntegrantes(false);
+            });
+
+        return () => {
+            cancelado = true;
+        };
+    }, [grupoSeleccionadoId]);
 
     const abrirCrearGrupo = () => {
         setTipoAccion("crear");
@@ -125,84 +160,106 @@ export default function Panellateral({
                 Inicio
             </button>
 
-            <div className="group-panel">
-                <div className="group-actions">
-                    <button type="button" onClick={abrirCrearGrupo}>Crear grupo</button>
-                    <button type="button" onClick={abrirUnirseGrupo}>Unirse a un grupo</button>
-                </div>
+            {grupoSeleccionado ? (
+                <div className="group-panel">
+                    <h3 className="group-title">{grupoSeleccionado.nombre}</h3>
 
-                <h3>Mis grupos</h3>
-                <div className="group-list">
-                    {grupos.length === 0 ? (
-                        <p className="empty-groups">Todavía no tienes grupos.</p>
-                    ) : (
-                        grupos.map((grupo) => (
-                            <button
-                                className={`group-item ${grupo.id === grupoSeleccionadoId ? "selected" : ""}`}
-                                key={grupo.id}
-                                type="button"
-                                onClick={() => onSeleccionarGrupo(grupo)}
-                            >
-                                {grupo.nombre}
-                            </button>
-                        ))
+                    <h3>Integrantes</h3>
+                    <div className="member-list">
+                        {cargandoIntegrantes ? (
+                            <p className="empty-groups">Cargando integrantes...</p>
+                        ) : integrantes.length === 0 ? (
+                            <p className="empty-groups">No hay integrantes.</p>
+                        ) : (
+                            integrantes.map((integrante) => (
+                                <div className="member-item" key={integrante.id}>
+                                    <span>{integrante.nombre}</span>
+                                    <small>{integrante.rol}</small>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            ) : (
+                <div className="group-panel">
+                    <div className="group-actions">
+                        <button type="button" onClick={abrirCrearGrupo}>Crear grupo</button>
+                        <button type="button" onClick={abrirUnirseGrupo}>Unirse a un grupo</button>
+                    </div>
+
+                    <h3>Mis grupos</h3>
+                    <div className="group-list">
+                        {grupos.length === 0 ? (
+                            <p className="empty-groups">Todavía no tienes grupos.</p>
+                        ) : (
+                            grupos.map((grupo) => (
+                                <button
+                                    className={`group-item ${grupo.id === grupoSeleccionadoId ? "selected" : ""}`}
+                                    key={grupo.id}
+                                    type="button"
+                                    onClick={() => onSeleccionarGrupo(grupo)}
+                                >
+                                    {grupo.nombre}
+                                </button>
+                            ))
+                        )}
+                    </div>
+
+                    {modalAbierta && (
+                        <div className="modal-overlay">
+                            <div className="modal-box">
+                                <h3>
+                                    {tipoAccion === "crear" ? "Crear grupo" : "Unirse a un grupo"}
+                                </h3>
+
+                                {tipoAccion === "crear" ? (
+                                    <>
+                                        <label>
+                                            Nombre del grupo
+                                            <input
+                                                type="text"
+                                                value={nombreGrupo}
+                                                onChange={(e) => setNombreGrupo(e.target.value)}
+                                                placeholder="Ej: Junta de vecinos"
+                                            />
+                                        </label>
+
+                                        <div className="clave-box">
+                                            <span>Clave:</span>
+                                            <strong>{claveGrupo}</strong>
+                                        </div>
+
+                                        <button type="button" className="primary-button" onClick={guardarGrupo} disabled={guardando}>
+                                            {guardando ? "Guardando..." : "Guardar grupo"}
+                                        </button>
+                                        {error && <p className="form-error">{error}</p>}
+                                    </>
+                                ) : (
+                                    <>
+                                        <label>
+                                            Ingresa la clave del grupo
+                                            <input
+                                                type="text"
+                                                value={codigoGrupo}
+                                                onChange={(e) => setCodigoGrupo(e.target.value)}
+                                                placeholder="Ej: ABCD5"
+                                            />
+                                        </label>
+                                        <button type="button" className="primary-button" onClick={manejarUnirse} disabled={guardando}>
+                                            {guardando ? "Uniéndome..." : "Unirme"}
+                                        </button>
+                                        {error && <p className="form-error">{error}</p>}
+                                    </>
+                                )}
+
+                                <button type="button" className="secondary-button" onClick={cerrarModal}>
+                                    Cerrar
+                                </button>
+                            </div>
+                        </div>
                     )}
                 </div>
-
-                {modalAbierta && (
-                    <div className="modal-overlay">
-                        <div className="modal-box">
-                            <h3>
-                                {tipoAccion === "crear" ? "Crear grupo" : "Unirse a un grupo"}
-                            </h3>
-
-                            {tipoAccion === "crear" ? (
-                                <>
-                                    <label>
-                                        Nombre del grupo
-                                        <input
-                                            type="text"
-                                            value={nombreGrupo}
-                                            onChange={(e) => setNombreGrupo(e.target.value)}
-                                            placeholder="Ej: Junta de vecinos"
-                                        />
-                                    </label>
-
-                                    <div className="clave-box">
-                                        <span>Clave:</span>
-                                        <strong>{claveGrupo}</strong>
-                                    </div>
-
-                                    <button type="button" className="primary-button" onClick={guardarGrupo} disabled={guardando}>
-                                        {guardando ? "Guardando..." : "Guardar grupo"}
-                                    </button>
-                                    {error && <p className="form-error">{error}</p>}
-                                </>
-                            ) : (
-                                <>
-                                    <label>
-                                        Ingresa la clave del grupo
-                                        <input
-                                            type="text"
-                                            value={codigoGrupo}
-                                            onChange={(e) => setCodigoGrupo(e.target.value)}
-                                            placeholder="Ej: ABCD5"
-                                        />
-                                    </label>
-                                    <button type="button" className="primary-button" onClick={manejarUnirse} disabled={guardando}>
-                                        {guardando ? "Uniéndome..." : "Unirme"}
-                                    </button>
-                                    {error && <p className="form-error">{error}</p>}
-                                </>
-                            )}
-
-                            <button type="button" className="secondary-button" onClick={cerrarModal}>
-                                Cerrar
-                            </button>
-                        </div>
-                    </div>
-                )}
-            </div>
+            )}
             <button className="logout-button" onClick={onLogout}>
                 Cerrar sesión
             </button>

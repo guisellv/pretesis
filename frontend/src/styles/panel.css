@@ -70,6 +70,41 @@
     background: rgba(255, 255, 255, 0.08);
 }
 
+.group-title {
+    margin: 1rem 0 0.25rem;
+    color: #ffffff;
+    font-size: 1.1rem;
+    word-break: break-word;
+}
+
+.member-list {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.member-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 0.8rem;
+    border: 1px solid #B7A7AE;
+    border-radius: 0.4rem;
+    color: #ffffff;
+}
+
+.member-item span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.member-item small {
+    flex-shrink: 0;
+    color: #E1D5D9;
+    font-size: 0.75rem;
+}
+
 .empty-groups {
     margin: 0;
     color: #E1D5D9;
@@ -136,12 +171,117 @@
     font-weight: 700;
 }
 
+.meeting-date-time {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    gap: 0.75rem;
+}
+
+.time-picker {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    min-height: 52px;
+    padding: 0.3rem 0.45rem;
+    border: 1px solid #B7A7AE;
+    border-radius: 0.5rem;
+    background: #F6F2F6;
+}
+
+.time-picker > span {
+    color: #58545B;
+    font-size: 1.25rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+}
+
+.time-picker-unit {
+    display: grid;
+    grid-template-columns: 2.4rem 1.1rem;
+    grid-template-rows: 12px 24px 12px;
+    align-items: center;
+    padding: 0.15rem 0.2rem;
+    border: 1px solid rgb(183 167 174 / 45%);
+    border-radius: 0.4rem;
+    background: #ffffff;
+}
+
+.time-step-button {
+    width: 18px;
+    height: 12px;
+    padding: 0;
+    border: 0;
+    border-radius: 0.2rem;
+    background: transparent;
+    color: #58545B;
+    font-size: 0.48rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.time-step-button:first-child {
+    grid-column: 2;
+    grid-row: 3;
+}
+
+.time-step-button:last-child {
+    grid-column: 2;
+    grid-row: 1;
+}
+
+.time-step-button:hover:not(:disabled) {
+    background: #E1D5D9;
+}
+
+.time-step-button:disabled {
+    cursor: default;
+    opacity: 0.55;
+}
+
+.time-picker-unit .time-value {
+    grid-column: 1;
+    grid-row: 1 / 4;
+    width: 2.4rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font-size: 1.15rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    text-align: center;
+}
+
+.time-picker-unit .time-value:focus {
+    outline: 2px solid #58545B;
+    outline-offset: 1px;
+}
+
+.time-picker-unit .time-value::-webkit-inner-spin-button,
+.time-picker-unit .time-value::-webkit-outer-spin-button {
+    margin: 0;
+    appearance: none;
+}
+
 .modal-box input {
     width: 100%;
     padding: 0.75rem 0.8rem;
     border: 1px solid #B7A7AE;
     border-radius: 0.5rem;
     background: #F6F2F6;
+    color: #1C252C;
+    font: inherit;
+}
+
+.modal-box input:focus,
+.modal-box textarea:focus {
+    outline: 2px solid #58545B;
+    outline-offset: 2px;
+}
+
+.modal-box input:disabled {
+    color: #58545B;
+    opacity: 0.8;
 }
 
 .modal-box textarea {
@@ -152,6 +292,13 @@
     background: #F6F2F6;
     font: inherit;
     resize: vertical;
+}
+
+@media (max-width: 360px) {
+    .meeting-date-time {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
 }
 
 .clave-box {

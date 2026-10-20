@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { pool } from '../config/database';
+import { AuthenticatedRequest } from '../middleware';
 
 export async function listarGrupos(req: Request, res: Response): Promise<any> {
     try {
@@ -118,6 +119,45 @@ export async function unirseGrupo(req: Request, res: Response): Promise<any> {
 
         return res.status(500).json({
             error: 'Error al unirse al grupo'
+        });
+    }
+}
+
+export async function listarIntegrantes(req: AuthenticatedRequest, res: Response): Promise<any> {
+    try {
+        const grupoId = Number(req.params.grupoId);
+
+        if (!Number.isInteger(grupoId)) {
+            return res.status(400).json({
+                error: 'El grupo es obligatorio'
+            });
+        }
+
+        const pertenece = await pool.query(
+            'SELECT 1 FROM usuarios_grupos WHERE usuario_id = $1 AND grupo_id = $2',
+            [req.user?.id, grupoId]
+        );
+
+        if ((pertenece.rowCount ?? 0) === 0) {
+            return res.status(403).json({
+                error: 'No perteneces a este grupo'
+            });
+        }
+
+        const result = await pool.query(
+            `SELECT u.id, u."nombreCompleto" AS nombre, ug.rol
+             FROM usuarios_grupos ug
+             INNER JOIN users u ON u.id = ug.usuario_id
+             WHERE ug.grupo_id = $1
+             ORDER BY LOWER(ug.rol) = 'administrador' DESC, u."nombreCompleto"`,
+            [grupoId]
+        );
+
+        return res.status(200).json({ integrantes: result.rows });
+    } catch (error) {
+        console.error('Error al listar integrantes:', error);
+        return res.status(500).json({
+            error: 'No se pudieron cargar los integrantes'
         });
     }
 }
