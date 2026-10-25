@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
+import { obtenerSecreto } from '../helpers/jwt.helper';
 
 export interface AuthenticatedRequest extends Request {
     user?: {
@@ -21,12 +22,10 @@ export function requireAuth(
     }
 
     const token = authHeader.split(' ')[1];
+    const secreto = obtenerSecreto();
 
     try {
-        const decoded = jwt.verify(
-            token,
-            process.env.JWT_SECRET || 'clave_respaldo'
-        ) as { id: number };
+        const decoded = jwt.verify(token, secreto) as { id: number };
 
         req.user = { id: decoded.id };
         next();

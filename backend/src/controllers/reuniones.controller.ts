@@ -1,5 +1,6 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { pool } from '../config/database';
+import { AuthenticatedRequest } from '../middleware';
 
 async function esAdministrador(usuarioId: number, grupoId: number): Promise<boolean> {
     const result = await pool.query(
@@ -33,13 +34,13 @@ function calcularFechaFin(fechaInicio: string, fechaFin?: string): string | null
     return `${inicio.getUTCFullYear()}-${pad(inicio.getUTCMonth() + 1)}-${pad(inicio.getUTCDate())}T${pad(inicio.getUTCHours())}:${pad(inicio.getUTCMinutes())}`;
 }
 
-export async function listarReuniones(req: Request, res: Response): Promise<any> {
+export async function listarReuniones(req: AuthenticatedRequest, res: Response): Promise<any> {
     try {
         const grupoId = Number(req.query.grupo_id);
-        const usuarioId = Number(req.query.usuario_id);
+        const usuarioId = req.user!.id;
 
-        if (!Number.isInteger(grupoId) || !Number.isInteger(usuarioId)) {
-            return res.status(400).json({ error: 'El grupo y el usuario son obligatorios' });
+        if (!Number.isInteger(grupoId)) {
+            return res.status(400).json({ error: 'El grupo es obligatorio' });
         }
 
         const acceso = await pool.query(
@@ -66,12 +67,13 @@ export async function listarReuniones(req: Request, res: Response): Promise<any>
     }
 }
 
-export async function crearReunion(req: Request, res: Response): Promise<any> {
+export async function crearReunion(req: AuthenticatedRequest, res: Response): Promise<any> {
     try {
-        const { grupo_id, usuario_id, titulo, descripcion, fecha_inicio, fecha_fin } = req.body;
+        const { grupo_id, titulo, descripcion, fecha_inicio, fecha_fin } = req.body;
+        const usuarioId = req.user!.id;
 
-        if (!grupo_id || !usuario_id || !titulo || !fecha_inicio) {
-            return res.status(400).json({ error: 'Título, fecha, grupo y usuario son obligatorios' });
+        if (!grupo_id || !titulo || !fecha_inicio) {
+            return res.status(400).json({ error: 'Título, fecha y grupo son obligatorios' });
         }
 
         const fechaFinCalculada = calcularFechaFin(fecha_inicio, fecha_fin);
@@ -79,7 +81,7 @@ export async function crearReunion(req: Request, res: Response): Promise<any> {
             return res.status(400).json({ error: 'La fecha de inicio no es válida' });
         }
 
-        if (!(await esAdministrador(Number(usuario_id), Number(grupo_id)))) {
+        if (!(await esAdministrador(usuarioId, Number(grupo_id)))) {
             return res.status(403).json({ error: 'Solo el administrador puede crear reuniones' });
         }
 
@@ -97,10 +99,11 @@ export async function crearReunion(req: Request, res: Response): Promise<any> {
     }
 }
 
-export async function actualizarReunion(req: Request, res: Response): Promise<any> {
+export async function actualizarReunion(req: AuthenticatedRequest, res: Response): Promise<any> {
     try {
         const reunionId = Number(req.params.id);
-        const { usuario_id, titulo, descripcion, fecha_inicio, fecha_fin } = req.body;
+        const { titulo, descripcion, fecha_inicio, fecha_fin } = req.body;
+        const usuarioId = req.user!.id;
 
         const reunion = await pool.query(
             'SELECT grupo_id FROM reuniones WHERE id = $1',
@@ -111,7 +114,7 @@ export async function actualizarReunion(req: Request, res: Response): Promise<an
             return res.status(404).json({ error: 'La reunión no existe' });
         }
 
-        if (!(await esAdministrador(Number(usuario_id), reunion.rows[0].grupo_id))) {
+        if (!(await esAdministrador(usuarioId, reunion.rows[0].grupo_id))) {
             return res.status(403).json({ error: 'Solo el administrador puede editar reuniones' });
         }
 
@@ -135,10 +138,10 @@ export async function actualizarReunion(req: Request, res: Response): Promise<an
     }
 }
 
-export async function eliminarReunion(req: Request, res: Response): Promise<any> {
+export async function eliminarReunion(req: AuthenticatedRequest, res: Response): Promise<any> {
     try {
         const reunionId = Number(req.params.id);
-        const usuarioId = Number(req.query.usuario_id);
+        const usuarioId = req.user!.id;
 
         const reunion = await pool.query(
             'SELECT grupo_id FROM reuniones WHERE id = $1',

@@ -1,16 +1,10 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { pool } from '../config/database';
 import { AuthenticatedRequest } from '../middleware';
 
-export async function listarGrupos(req: Request, res: Response): Promise<any> {
+export async function listarGrupos(req: AuthenticatedRequest, res: Response): Promise<any> {
     try {
-        const usuarioId = Number(req.query.usuario_id);
-
-        if (!Number.isInteger(usuarioId)) {
-            return res.status(400).json({
-                error: 'El usuario es obligatorio'
-            });
-        }
+        const usuarioId = req.user!.id;
 
         const result = await pool.query(
             `SELECT g.id, g.nombre, g.codigo_acceso, ug.rol
@@ -30,13 +24,14 @@ export async function listarGrupos(req: Request, res: Response): Promise<any> {
     }
 }
 
-export async function crearGrupo(req: Request, res: Response): Promise<any> {
+export async function crearGrupo(req: AuthenticatedRequest, res: Response): Promise<any> {
     try {
-        const { nombre, codigo_acceso, usuario_id } = req.body;
+        const { nombre, codigo_acceso } = req.body;
+        const usuarioId = req.user!.id;
 
-        if (!nombre || !codigo_acceso || !usuario_id) {
+        if (!nombre || !codigo_acceso) {
             return res.status(400).json({
-                error: 'El nombre '
+                error: 'El nombre y el código del grupo son obligatorios'
             });
         }
 
@@ -50,7 +45,7 @@ export async function crearGrupo(req: Request, res: Response): Promise<any> {
         await pool.query(
             `INSERT INTO usuarios_grupos (usuario_id, grupo_id, rol)
              VALUES ($1, $2, 'Administrador')`,
-            [usuario_id, result.rows[0].id]
+            [usuarioId, result.rows[0].id]
         );
 
         return res.status(201).json({
@@ -70,9 +65,10 @@ export async function crearGrupo(req: Request, res: Response): Promise<any> {
     }
 }
 
-export async function unirseGrupo(req: Request, res: Response): Promise<any> {
+export async function unirseGrupo(req: AuthenticatedRequest, res: Response): Promise<any> {
     try {
-        const { usuario_id, codigo_acceso, rol_solicitado } = req.body;
+        const { codigo_acceso } = req.body;
+        const usuarioId = req.user!.id;
 
         const grupoResult = await pool.query(
             'SELECT id, nombre FROM grupos WHERE codigo_acceso = $1',
@@ -90,8 +86,8 @@ export async function unirseGrupo(req: Request, res: Response): Promise<any> {
         await pool.query(
             `INSERT INTO usuarios_grupos
              (usuario_id, grupo_id, rol)
-             VALUES ($1, $2, $3)`,
-            [usuario_id, grupo.id, rol_solicitado || 'Lector']
+             VALUES ($1, $2, 'Lector')`,
+            [usuarioId, grupo.id]
         );
 
         return res.status(200).json({

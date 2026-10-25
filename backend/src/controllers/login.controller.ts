@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import { comparePassword, encryptPassword } from '../helpers/bcrypt.helper';
+import { generarToken } from '../helpers/jwt.helper';
 import { pool } from '../config/database';
 
 export async function registrarUsuario(req: Request, res: Response): Promise<any> {
@@ -13,7 +13,7 @@ export async function registrarUsuario(req: Request, res: Response): Promise<any
             });
         }
 
-        const claveHash = await bcrypt.hash(clave, 10);
+        const claveHash = await encryptPassword(clave);
 
         const result = await pool.query(
             `INSERT INTO users ("nombreCompleto", email, clave, rol)
@@ -58,7 +58,7 @@ export async function iniciarSesion(req: Request, res: Response): Promise<any> {
             });
         }
 
-        const passwordValida = await bcrypt.compare(clave, usuario.clave);
+        const passwordValida = await comparePassword(clave, usuario.clave);
 
         if (!passwordValida) {
             return res.status(401).json({
@@ -66,11 +66,7 @@ export async function iniciarSesion(req: Request, res: Response): Promise<any> {
             });
         }
 
-        const token = jwt.sign(
-            { id: usuario.id },
-            process.env.JWT_SECRET || 'clave_respaldo',
-            { expiresIn: '8h' }
-        );
+        const token = generarToken(usuario.id);
 
         return res.status(200).json({
             mensaje: 'Inicio de sesión exitoso',
