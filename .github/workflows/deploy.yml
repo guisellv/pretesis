@@ -35,12 +35,14 @@ jobs:
       - name: Instalar dependencias del Frontend
         run: |
           source ~/.nvm/nvm.sh
+          cd frontend
           npm install
 
       - name: Compilar Frontend
         run: |
           source ~/.nvm/nvm.sh
-          npx vite build
+          cd frontend
+          npm run build
 
       - name: Reiniciar Backend con PM2
         run: |
@@ -48,8 +50,11 @@ jobs:
           cd backend
           setsid pm2 restart backend --update-env || setsid pm2 start dist/index.js --name "backend"
 
+      # Se borra y se vuelve a crear para que PM2 tome siempre la carpeta y el puerto actuales
       - name: Reiniciar Frontend con PM2
         run: |
           source ~/.nvm/nvm.sh
-          setsid pm2 restart frontend --update-env || setsid pm2 start node_modules/.bin/vite --name "frontend" -- preview --host 0.0.0.0 --port 80 --strictPort
+          cd frontend
+          pm2 delete frontend || true
+          setsid pm2 start node_modules/.bin/vite --name "frontend" -- preview --host 0.0.0.0 --port 80 --strictPort
           pm2 save
