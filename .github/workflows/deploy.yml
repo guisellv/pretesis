@@ -32,9 +32,24 @@ jobs:
           mkdir -p ./backend/dist/config
           cp ~/backend.env ./backend/dist/config/.env
 
+      - name: Instalar dependencias del Frontend
+        run: |
+          source ~/.nvm/nvm.sh
+          npm install
+
+      - name: Compilar Frontend
+        run: |
+          source ~/.nvm/nvm.sh
+          npx vite build
+
       - name: Reiniciar Backend con PM2
         run: |
           source ~/.nvm/nvm.sh
           cd backend
-          setsid pm2 restart api-backend --update-env || setsid pm2 start dist/index.js --name "api-backend"
+          setsid pm2 restart backend --update-env || setsid pm2 start dist/index.js --name "backend"
+
+      - name: Reiniciar Frontend con PM2
+        run: |
+          source ~/.nvm/nvm.sh
+          setsid pm2 restart frontend --update-env || setsid pm2 start node_modules/.bin/vite --name "frontend" -- preview --host 0.0.0.0 --port 4173
           pm2 save
