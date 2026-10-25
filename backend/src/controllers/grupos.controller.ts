@@ -50,7 +50,7 @@ export async function crearGrupo(req: AuthenticatedRequest, res: Response): Prom
 
         return res.status(201).json({
             mensaje: 'Grupo creado exitosamente',
-            grupo: result.rows[0]
+            grupo: { ...result.rows[0], rol: 'Administrador' }
         });
     } catch (error: any) {
         if (error.code === '23505') {
@@ -95,7 +95,8 @@ export async function unirseGrupo(req: AuthenticatedRequest, res: Response): Pro
             grupo: {
                 id: grupo.id,
                 nombre: grupo.nombre,
-                codigo_acceso: codigo_acceso
+                codigo_acceso: codigo_acceso,
+                rol: 'Lector'
             }
         });
     } catch (error: any) {
