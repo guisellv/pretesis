@@ -8,6 +8,7 @@ on:
 jobs:
   deploy:
     runs-on: self-hosted
+    timeout-minutes: 15
     steps:
       - name: Descargar el código
         uses: actions/checkout@v4
@@ -27,7 +28,9 @@ jobs:
       - name: Inyectar variables de entorno Backend
         run: |
           cp ~/backend.env ./backend/.env
-          grep -q "^DATABASE_URL=" ./backend/.env
+          cp ~/backend.env ./backend/src/config/.env
+          mkdir -p ./backend/dist/config
+          cp ~/backend.env ./backend/dist/config/.env
 
       - name: Reiniciar Backend con PM2
         run: |
@@ -35,4 +38,3 @@ jobs:
           cd backend
           setsid pm2 restart api-backend --update-env || setsid pm2 start dist/index.js --name "api-backend"
           pm2 save
-
