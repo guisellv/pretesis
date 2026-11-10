@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { pool } from '../config/database';
 import { AuthenticatedRequest } from '../middleware';
+import { tituloValido } from '../helpers/titulo.helper';
 
 export async function listarGrupos(req: AuthenticatedRequest, res: Response): Promise<any> {
     try {
@@ -32,6 +33,12 @@ export async function crearGrupo(req: AuthenticatedRequest, res: Response): Prom
         if (!nombre || !codigo_acceso) {
             return res.status(400).json({
                 error: 'El nombre y el código del grupo son obligatorios'
+            });
+        }
+
+        if (!tituloValido(nombre)) {
+            return res.status(400).json({
+                error: 'El nombre del grupo debe tener al menos una letra, no puede ser solo números'
             });
         }
 
@@ -86,7 +93,7 @@ export async function unirseGrupo(req: AuthenticatedRequest, res: Response): Pro
         await pool.query(
             `INSERT INTO usuarios_grupos
              (usuario_id, grupo_id, rol)
-             VALUES ($1, $2, 'Lector')`,
+             VALUES ($1, $2, 'Integrante')`,
             [usuarioId, grupo.id]
         );
 
@@ -96,7 +103,7 @@ export async function unirseGrupo(req: AuthenticatedRequest, res: Response): Pro
                 id: grupo.id,
                 nombre: grupo.nombre,
                 codigo_acceso: codigo_acceso,
-                rol: 'Lector'
+                rol: 'Integrante'
             }
         });
     } catch (error: any) {
@@ -156,5 +163,38 @@ export async function listarIntegrantes(req: AuthenticatedRequest, res: Response
         return res.status(500).json({
             error: 'No se pudieron cargar los integrantes'
         });
+    }
+}
+
+export async function actualizarRolIntegrante(req: AuthenticatedRequest, res: Response): Promise<any> {
+    try {
+        const grupoId = Number(req.params.grupoId);
+        const usuarioId = Number(req.params.usuarioId);
+        const { rol } = req.body;
+
+        if (!Number.isInteger(grupoId) || grupoId <= 0 || !Number.isInteger(usuarioId) || usuarioId <= 0) {
+            return res.status(400).json({ error: 'El grupo y el integrante son obligatorios' });
+        }
+
+        if (rol !== 'Integrante' && rol !== 'Secretaria') {
+            return res.status(400).json({ error: 'El rol debe ser Integrante o Secretaria' });
+        }
+
+        const result = await pool.query(
+            `UPDATE usuarios_grupos
+             SET rol = $1
+             WHERE grupo_id = $2 AND usuario_id = $3 AND LOWER(rol) <> 'administrador'
+             RETURNING usuario_id AS id, rol`,
+            [rol, grupoId, usuarioId]
+        );
+
+        if ((result.rowCount ?? 0) === 0) {
+            return res.status(404).json({ error: 'El integrante no existe en este grupo' });
+        }
+
+        return res.status(200).json({ integrante: result.rows[0] });
+    } catch (error) {
+        console.error('Error al actualizar el rol del integrante:', error);
+        return res.status(500).json({ error: 'No se pudo actualizar el rol del integrante' });
     }
 }

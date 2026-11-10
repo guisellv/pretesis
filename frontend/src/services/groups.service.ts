@@ -52,6 +52,8 @@ export type Integrante = {
     rol: string;
 };
 
+export type RolIntegrante = 'Integrante' | 'Secretaria';
+
 type ListarIntegrantesResponse = {
     integrantes: Integrante[];
 };
@@ -60,4 +62,13 @@ export async function listarIntegrantes(grupoId: number) {
     const { data } = await api.get<ListarIntegrantesResponse>(`/grupos/${grupoId}/integrantes`);
 
     return data.integrantes;
+}
+
+export async function actualizarRolIntegrante(grupoId: number, usuarioId: number, rol: RolIntegrante) {
+    const { data } = await api.put<{ integrante: Integrante }>(
+        `/grupos/${grupoId}/integrantes/${usuarioId}/rol`,
+        { rol }
+    );
+
+    return data.integrante;
 }

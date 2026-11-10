@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import {
     Calendar as BigCalendar,
@@ -15,9 +15,16 @@ import {
     actualizarReunion,
     crearReunion,
     eliminarReunion,
+    guardarFormularioActa,
     listarReuniones,
+    obtenerFormularioActa,
+    type CambioFormulario,
+    type ChoqueReunion,
+    type FormularioActa,
+    type Modalidad,
     type Reunion,
 } from '../services/meetings.service';
+import { tituloValido } from '../helpers/titulo';
 
 const localizer = dateFnsLocalizer({
     format,
@@ -45,6 +52,7 @@ type CalendarProps = {
     nombreGrupo?: string;
     codigoGrupo?: string;
     esAdministrador?: boolean;
+    esSecretaria?: boolean;
     grupoId: number | null;
     usuarioId: number | null;
 };
@@ -60,14 +68,50 @@ type FormularioReunion = {
     descripcion: string;
     fecha: string;
     hora: string;
+    modalidad: Modalidad | '';
+    plataforma: string; // una de PLATAFORMAS o 'Otra'
+    plataformaOtra: string; // nombre escrito a mano cuando plataforma es 'Otra'
+    enlace: string;
+    direccion: string;
 };
+
+const PLATAFORMAS = ['Google Meet', 'Zoom', 'Microsoft Teams'];
 
 const formularioVacio: FormularioReunion = {
     titulo: '',
     descripcion: '',
     fecha: '',
     hora: '',
+    modalidad: '',
+    plataforma: '',
+    plataformaOtra: '',
+    enlace: '',
+    direccion: '',
 };
+
+function modalidadParaFormulario(reunion: Reunion): Pick<
+    FormularioReunion,
+    'modalidad' | 'plataforma' | 'plataformaOtra' | 'enlace' | 'direccion'
+> {
+    const plataforma = reunion.plataforma ?? '';
+    const esConocida = PLATAFORMAS.includes(plataforma);
+    return {
+        modalidad: reunion.modalidad ?? '',
+        plataforma: !plataforma ? '' : esConocida ? plataforma : 'Otra',
+        plataformaOtra: plataforma && !esConocida ? plataforma : '',
+        enlace: reunion.enlace ?? '',
+        direccion: reunion.direccion ?? '',
+    };
+}
+
+function enlaceValido(enlace: string): boolean {
+    try {
+        const url = new URL(enlace);
+        return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+        return false;
+    }
+}
 
 function fechaHoraParaFormulario(fecha: Date): Pick<FormularioReunion, 'fecha' | 'hora'> {
     const pad = (valor: number) => String(valor).padStart(2, '0');
@@ -81,6 +125,7 @@ export function Calendar({
     nombreGrupo,
     codigoGrupo,
     esAdministrador,
+    esSecretaria,
     grupoId,
     usuarioId,
 }: CalendarProps) {
@@ -91,9 +136,19 @@ export function Calendar({
     const [formulario, setFormulario] = useState<FormularioReunion>(formularioVacio);
     const [partesHora, setPartesHora] = useState({ hora: '', minuto: '' });
     const [error, setError] = useState('');
+    // Reuniones con las que choca el horario; si hay, se pide confirmar antes de guardar
+    const [choques, setChoques] = useState<ChoqueReunion[]>([]);
     const [errorCarga, setErrorCarga] = useState('');
     const [guardando, setGuardando] = useState(false);
     const [fechaActual, setFechaActual] = useState(new Date());
+    const [acta, setActa] = useState<FormularioActa | null>(null);
+    const [historialActa, setHistorialActa] = useState<CambioFormulario[]>([]);
+    const [versionViendo, setVersionViendo] = useState<CambioFormulario | null>(null);
+    const [vistaFormulario, setVistaFormulario] = useState(false);
+    const [contenidoActa, setContenidoActa] = useState('');
+    const [errorActa, setErrorActa] = useState('');
+    const [guardandoActa, setGuardandoActa] = useState(false);
+    const reunionAbiertaId = useRef<number | null>(null);
 
     useEffect(() => {
         setErrorCarga('');
@@ -120,6 +175,7 @@ export function Calendar({
         setFormulario(formularioVacio);
         setPartesHora({ hora: '', minuto: '' });
         setError('');
+        setChoques([]);
         setModalAbierto(true);
     };
 
@@ -130,19 +186,82 @@ export function Calendar({
             titulo: reunion.titulo,
             descripcion: reunion.descripcion,
             ...fechaHora,
+            ...modalidadParaFormulario(reunion),
         });
         setPartesHora({
             hora: fechaHora.hora.slice(0, 2),
             minuto: fechaHora.hora.slice(3, 5),
         });
         setError('');
+        setChoques([]);
         setModalAbierto(true);
+
+        reunionAbiertaId.current = reunion.id;
+        setActa(null);
+        setHistorialActa([]);
+        setVistaFormulario(false);
+        setErrorActa('');
+
+        obtenerFormularioActa(reunion.id)
+            .then(({ formulario, historial }) => {
+                // Evita mostrar el formulario de otra reunión si el usuario cambió rápido
+                if (reunionAbiertaId.current !== reunion.id) return;
+                setActa(formulario);
+                setHistorialActa(historial);
+            })
+            .catch((errorDesconocido: unknown) => {
+                console.error('Error al cargar formulario:', errorDesconocido);
+            });
+    };
+
+    const abrirFormularioActa = () => {
+        setContenidoActa(acta?.contenido ?? '');
+        setErrorActa('');
+        setVersionViendo(null);
+        setVistaFormulario(true);
+    };
+
+    const restaurarVersion = (version: CambioFormulario) => {
+        // Copia el texto antiguo al editor; se guarda recién al presionar "Guardar formulario"
+        setContenidoActa(version.contenido);
+        setVersionViendo(null);
+        setErrorActa('');
+    };
+
+    const formatearFecha = (fecha: string) =>
+        format(new Date(fecha), "d 'de' MMMM yyyy, HH:mm", { locale: es });
+
+    const guardarActa = async () => {
+        if (!reunionEditada) return;
+
+        if (!contenidoActa.trim()) {
+            setErrorActa('Escribe lo que se habló en la reunión antes de guardar.');
+            return;
+        }
+
+        setGuardandoActa(true);
+        setErrorActa('');
+
+        try {
+            const { formulario, historial } = await guardarFormularioActa(reunionEditada.id, contenidoActa);
+            setActa(formulario);
+            setHistorialActa(historial);
+            setVistaFormulario(false);
+        } catch (errorDesconocido: unknown) {
+            const mensaje = axios.isAxiosError(errorDesconocido)
+                ? errorDesconocido.response?.data?.error
+                : null;
+            setErrorActa(mensaje || 'No se pudo guardar el formulario.');
+        } finally {
+            setGuardandoActa(false);
+        }
     };
 
     const actualizarParteHora = (parte: 'hora' | 'minuto', valor: string) => {
         const valorLimpio = valor.replace(/\D/g, '').slice(0, 2);
         const nuevasPartes = { ...partesHora, [parte]: valorLimpio };
         setPartesHora(nuevasPartes);
+        setChoques([]); // el aviso de choque era para el horario anterior
         setFormulario((actual) => ({
             ...actual,
             hora: nuevasPartes.hora && nuevasPartes.minuto
@@ -164,9 +283,17 @@ export function Calendar({
         setFormulario(formularioVacio);
         setPartesHora({ hora: '', minuto: '' });
         setError('');
+        setChoques([]);
+        reunionAbiertaId.current = null;
+        setActa(null);
+        setHistorialActa([]);
+        setVersionViendo(null);
+        setVistaFormulario(false);
+        setContenidoActa('');
+        setErrorActa('');
     };
 
-    const guardarReunion = async () => {
+    const guardarReunion = async (confirmarChoque = false) => {
         if (grupoId === null || usuarioId === null) {
             setError('Selecciona un grupo antes de guardar la reunión.');
             return;
@@ -177,8 +304,58 @@ export function Calendar({
             return;
         }
 
+        if (!tituloValido(formulario.titulo)) {
+            setError('El título de la reunión debe tener al menos una letra, no puede ser solo números.');
+            return;
+        }
+
         if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(formulario.hora)) {
             setError('Escribe la hora con el formato HH:MM, por ejemplo 14:30.');
+            return;
+        }
+
+        // Al editar, una reunión que ya pasó se puede corregir mientras no se cambie su fecha u hora
+        const fechaOriginal = reunionEditada
+            ? fechaHoraParaFormulario(new Date(reunionEditada.fecha_inicio))
+            : null;
+        const cambioFecha = !fechaOriginal
+            || fechaOriginal.fecha !== formulario.fecha
+            || fechaOriginal.hora !== formulario.hora;
+        const inicio = new Date(`${formulario.fecha}T${formulario.hora}`);
+        const minutoActual = new Date();
+        minutoActual.setSeconds(0, 0);
+
+        if (cambioFecha && inicio.getTime() < minutoActual.getTime()) {
+            setError(reunionEditada
+                ? 'No puedes mover la reunión a una fecha u hora que ya pasó.'
+                : 'No puedes crear una reunión en una fecha u hora que ya pasó.');
+            return;
+        }
+
+        if (!formulario.modalidad) {
+            setError('Selecciona si la reunión es online o presencial.');
+            return;
+        }
+
+        const esOnline = formulario.modalidad === 'online';
+        const plataforma = formulario.plataforma === 'Otra'
+            ? formulario.plataformaOtra.trim()
+            : formulario.plataforma;
+        const enlace = formulario.enlace.trim();
+        const direccion = formulario.direccion.trim();
+
+        if (esOnline && (!plataforma || !enlace)) {
+            setError('Indica la plataforma y el enlace de la reunión online.');
+            return;
+        }
+
+        if (esOnline && !enlaceValido(enlace)) {
+            setError('El enlace debe comenzar con http:// o https://');
+            return;
+        }
+
+        if (!esOnline && !direccion) {
+            setError('Indica la dirección de la reunión presencial.');
             return;
         }
 
@@ -192,24 +369,38 @@ export function Calendar({
                 descripcion: formulario.descripcion,
                 fecha_inicio: `${formulario.fecha}T${formulario.hora}`,
                 fecha_fin: '',
+                modalidad: formulario.modalidad,
+                plataforma: esOnline ? plataforma : null,
+                enlace: esOnline ? enlace : null,
+                direccion: esOnline ? null : direccion,
             };
 
             if (reunionEditada) {
                 const actualizada = await actualizarReunion(
                     { ...datos, id: reunionEditada.id },
-                    usuarioId
+                    usuarioId,
+                    { confirmarChoque }
                 );
                 setReuniones((actuales) => actuales.map((reunion) => (
                     reunion.id === actualizada.id ? actualizada : reunion
                 )));
             } else {
-                const creada = await crearReunion(datos, usuarioId);
+                const creada = await crearReunion(datos, usuarioId, { confirmarChoque });
                 setReuniones((actuales) => [...actuales, creada]);
             }
 
             cerrarModal();
-        } catch {
-            setError('No se pudo guardar la reunión.');
+        } catch (errorDesconocido: unknown) {
+            const respuesta = axios.isAxiosError(errorDesconocido)
+                ? errorDesconocido.response
+                : undefined;
+
+            if (respuesta?.status === 409 && Array.isArray(respuesta.data?.choques)) {
+                setChoques(respuesta.data.choques);
+                return;
+            }
+
+            setError(respuesta?.data?.error || 'No se pudo guardar la reunión.');
         } finally {
             setGuardando(false);
         }
@@ -237,6 +428,8 @@ export function Calendar({
         end: new Date(reunion.fecha_fin),
     }));
     const soloLectura = reunionEditada !== null && !esAdministrador;
+    // Administrador y secretaria crean/modifican el formulario; los integrantes solo lo leen
+    const puedeEditarActa = Boolean(esAdministrador || esSecretaria);
 
     return (
         <>
@@ -282,6 +475,101 @@ export function Calendar({
 
             {modalAbierto && (
                 <div className="modal-overlay">
+                    {vistaFormulario && reunionEditada ? (
+                    <div className="modal-box meeting-modal acta-modal">
+                        <h3>Formulario de la reunión</h3>
+                        <p className="acta-reunion-info">
+                            <strong>{reunionEditada.titulo}</strong>
+                            <br />
+                            {formatearFecha(reunionEditada.fecha_inicio)}
+                        </p>
+
+                        {versionViendo ? (
+                            <>
+                                <p className="acta-version-aviso">
+                                    Estás viendo una versión anterior: <strong>{versionViendo.usuario_nombre}</strong>{' '}
+                                    {versionViendo.accion} el formulario el {formatearFecha(versionViendo.fecha)}
+                                </p>
+
+                                <label>
+                                    Contenido de esa versión
+                                    <textarea
+                                        className="acta-textarea"
+                                        value={versionViendo.contenido}
+                                        rows={14}
+                                        readOnly
+                                    />
+                                </label>
+
+                                {puedeEditarActa && (
+                                    <button type="button" className="primary-button" onClick={() => restaurarVersion(versionViendo)}>
+                                        Restaurar esta versión
+                                    </button>
+                                )}
+
+                                <button type="button" className="secondary-button" onClick={() => setVersionViendo(null)}>
+                                    Volver al formulario actual
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <label>
+                                    Lo que se habló en la reunión
+                                    <textarea
+                                        className="acta-textarea"
+                                        value={contenidoActa}
+                                        onChange={(evento) => setContenidoActa(evento.target.value)}
+                                        placeholder="Asistentes, temas tratados, acuerdos, tareas pendientes..."
+                                        rows={14}
+                                        readOnly={!puedeEditarActa}
+                                        autoFocus={puedeEditarActa}
+                                    />
+                                </label>
+
+                                {errorActa && <p className="form-error">{errorActa}</p>}
+
+                                {puedeEditarActa && (
+                                    <button type="button" className="primary-button" onClick={guardarActa} disabled={guardandoActa}>
+                                        {guardandoActa ? 'Guardando...' : 'Guardar formulario'}
+                                    </button>
+                                )}
+
+                                <button type="button" className="secondary-button" onClick={() => setVistaFormulario(false)}>
+                                    Volver
+                                </button>
+                            </>
+                        )}
+
+                        {historialActa.length > 0 && (
+                            <section className="acta-historial">
+                                <h4>Historial de cambios</h4>
+                                <ul>
+                                    {historialActa.map((cambio, indice) => (
+                                        <li
+                                            key={cambio.id}
+                                            className={versionViendo?.id === cambio.id ? 'acta-historial-activo' : undefined}
+                                        >
+                                            <span>
+                                                <strong>{cambio.usuario_nombre}</strong> {cambio.accion} el formulario
+                                                {indice === 0 && <em className="acta-historial-actual"> (actual)</em>}
+                                            </span>
+                                            <span className="acta-historial-fecha">
+                                                {formatearFecha(cambio.fecha)}
+                                                <button
+                                                    type="button"
+                                                    className="acta-historial-ver"
+                                                    onClick={() => setVersionViendo(cambio)}
+                                                >
+                                                    Ver
+                                                </button>
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </section>
+                        )}
+                    </div>
+                    ) : (
                     <div className="modal-box meeting-modal">
                         <h3>
                             {reunionEditada
@@ -317,8 +605,12 @@ export function Calendar({
                                 <input
                                     type="date"
                                     value={formulario.fecha}
+                                    min={reunionEditada ? undefined : fechaHoraParaFormulario(new Date()).fecha}
                                     disabled={soloLectura}
-                                    onChange={(evento) => setFormulario({ ...formulario, fecha: evento.target.value })}
+                                    onChange={(evento) => {
+                                        setFormulario({ ...formulario, fecha: evento.target.value });
+                                        setChoques([]); // el aviso de choque era para la fecha anterior
+                                    }}
                                 />
                             </label>
 
@@ -382,12 +674,135 @@ export function Calendar({
                             </label>
                         </div>
 
+                        <fieldset className="meeting-modality" disabled={soloLectura}>
+                            <legend>Modalidad</legend>
+                            <div className="meeting-modality-options">
+                                {(['presencial', 'online'] as const).map((opcion) => (
+                                    <label
+                                        key={opcion}
+                                        className={`meeting-modality-option${formulario.modalidad === opcion ? ' is-selected' : ''}`}
+                                    >
+                                        <input
+                                            type="radio"
+                                            name="modalidad"
+                                            value={opcion}
+                                            checked={formulario.modalidad === opcion}
+                                            onChange={() => setFormulario({ ...formulario, modalidad: opcion })}
+                                        />
+                                        {opcion === 'presencial' ? 'Presencial' : 'Online'}
+                                    </label>
+                                ))}
+                            </div>
+                        </fieldset>
+
+                        {formulario.modalidad === 'online' && (
+                            <>
+                                <label>
+                                    Plataforma
+                                    <select
+                                        value={formulario.plataforma}
+                                        disabled={soloLectura}
+                                        onChange={(evento) => setFormulario({ ...formulario, plataforma: evento.target.value })}
+                                    >
+                                        <option value="">Selecciona una plataforma</option>
+                                        {PLATAFORMAS.map((nombre) => (
+                                            <option key={nombre} value={nombre}>{nombre}</option>
+                                        ))}
+                                        <option value="Otra">Otra</option>
+                                    </select>
+                                </label>
+
+                                {formulario.plataforma === 'Otra' && (
+                                    <label>
+                                        Nombre de la plataforma
+                                        <input
+                                            type="text"
+                                            value={formulario.plataformaOtra}
+                                            disabled={soloLectura}
+                                            onChange={(evento) => setFormulario({ ...formulario, plataformaOtra: evento.target.value })}
+                                            placeholder="Ej: Jitsi, Discord, Webex"
+                                        />
+                                    </label>
+                                )}
+
+                                <label>
+                                    Enlace de la reunión
+                                    {soloLectura && formulario.enlace ? (
+                                        <a
+                                            className="meeting-link"
+                                            href={formulario.enlace}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            {formulario.enlace}
+                                        </a>
+                                    ) : (
+                                        <input
+                                            type="url"
+                                            value={formulario.enlace}
+                                            disabled={soloLectura}
+                                            onChange={(evento) => setFormulario({ ...formulario, enlace: evento.target.value })}
+                                            placeholder="https://meet.google.com/abc-defg-hij"
+                                        />
+                                    )}
+                                </label>
+                            </>
+                        )}
+
+                        {formulario.modalidad === 'presencial' && (
+                            <label>
+                                Dirección
+                                <input
+                                    type="text"
+                                    value={formulario.direccion}
+                                    disabled={soloLectura}
+                                    onChange={(evento) => setFormulario({ ...formulario, direccion: evento.target.value })}
+                                    placeholder="Ej: Av. Principal 123, sala 4"
+                                />
+                            </label>
+                        )}
 
                         {error && <p className="form-error">{error}</p>}
 
+                        {!soloLectura && choques.length > 0 && (
+                            <div className="meeting-conflict" role="alert">
+                                <p>
+                                    <strong>Este horario choca con {choques.length === 1 ? 'otra reunión' : 'otras reuniones'} del grupo:</strong>
+                                </p>
+                                <ul>
+                                    {choques.map((choque) => (
+                                        <li key={choque.id}>
+                                            <strong>{choque.titulo}</strong>
+                                            {' — '}
+                                            {formatearFecha(choque.fecha_inicio)} a {format(new Date(choque.fecha_fin), 'HH:mm')}
+                                        </li>
+                                    ))}
+                                </ul>
+                                <p>Puedes cambiar la fecha u hora, o guardarla de todas formas.</p>
+                            </div>
+                        )}
+
                         {!soloLectura && (
-                            <button type="button" className="primary-button" onClick={guardarReunion} disabled={guardando}>
-                                {guardando ? 'Guardando...' : 'Guardar reunión'}
+                            choques.length > 0 ? (
+                                <button type="button" className="primary-button" onClick={() => guardarReunion(true)} disabled={guardando}>
+                                    {guardando ? 'Guardando...' : 'Guardar de todas formas'}
+                                </button>
+                            ) : (
+                                <button type="button" className="primary-button" onClick={() => guardarReunion()} disabled={guardando}>
+                                    {guardando ? 'Guardando...' : 'Guardar reunión'}
+                                </button>
+                            )
+                        )}
+
+                        {reunionEditada && puedeEditarActa && (
+                            <button type="button" className="primary-button" onClick={abrirFormularioActa}>
+                                {acta ? 'Editar formulario' : 'Crear formulario'}
+                            </button>
+                        )}
+
+                        {reunionEditada && !puedeEditarActa && acta && (
+                            <button type="button" className="primary-button" onClick={abrirFormularioActa}>
+                                Ver formulario
                             </button>
                         )}
 
@@ -401,6 +816,7 @@ export function Calendar({
                             {soloLectura ? 'Cerrar' : 'Cancelar'}
                         </button>
                     </div>
+                    )}
                 </div>
             )}
         </>
