@@ -2,10 +2,13 @@ import { useEffect, useState } from "react";
 import {
     crearGrupo,
     listarIntegrantes,
+    actualizarRolIntegrante,
     unirseGrupo,
     type Grupo,
     type Integrante,
+    type RolIntegrante,
 } from "../services/groups.service";
+import { tituloValido } from "../helpers/titulo";
 
 type PanellateralProps = {
     nombreUsuario: string;
@@ -49,8 +52,11 @@ export default function Panellateral({
     const [codigoGrupo, setCodigoGrupo] = useState("");
     const [integrantes, setIntegrantes] = useState<Integrante[]>([]);
     const [cargandoIntegrantes, setCargandoIntegrantes] = useState(false);
+    const [integranteActualizando, setIntegranteActualizando] = useState<number | null>(null);
+    const [errorRol, setErrorRol] = useState("");
 
     const grupoSeleccionado = grupos.find((grupo) => grupo.id === grupoSeleccionadoId) ?? null;
+    const esAdministrador = grupoSeleccionado?.rol?.toLowerCase() === "administrador";
 
     useEffect(() => {
         if (grupoSeleccionadoId === null) {
@@ -77,6 +83,24 @@ export default function Panellateral({
         };
     }, [grupoSeleccionadoId]);
 
+    const cambiarRolIntegrante = async (usuarioId: number, rol: RolIntegrante) => {
+        if (grupoSeleccionadoId === null) return;
+
+        setIntegranteActualizando(usuarioId);
+        setErrorRol("");
+
+        try {
+            const integranteActualizado = await actualizarRolIntegrante(grupoSeleccionadoId, usuarioId, rol);
+            setIntegrantes((actuales) => actuales.map((integrante) =>
+                integrante.id === usuarioId ? { ...integrante, rol: integranteActualizado.rol } : integrante
+            ));
+        } catch {
+            setErrorRol("No se pudo actualizar el rol. Inténtalo nuevamente.");
+        } finally {
+            setIntegranteActualizando(null);
+        }
+    };
+
     const abrirCrearGrupo = () => {
         setTipoAccion("crear");
         setNombreGrupo("");
@@ -102,6 +126,11 @@ export default function Panellateral({
     const guardarGrupo = async () => {
         if (!nombreGrupo.trim()) {
             setError("Escribe un nombre para el grupo.");
+            return;
+        }
+
+        if (!tituloValido(nombreGrupo)) {
+            setError("El nombre del grupo debe tener al menos una letra, no puede ser solo números.");
             return;
         }
 
@@ -174,11 +203,30 @@ export default function Panellateral({
                             integrantes.map((integrante) => (
                                 <div className="member-item" key={integrante.id}>
                                     <span>{integrante.nombre}</span>
-                                    <small>{integrante.rol}</small>
+                                    {esAdministrador && integrante.rol.toLowerCase() !== "administrador" ? (
+                                        <select
+                                            aria-label={`Rol de ${integrante.nombre}`}
+                                            value={integrante.rol}
+                                            disabled={integranteActualizando !== null}
+                                            onChange={(event) => cambiarRolIntegrante(
+                                                integrante.id,
+                                                event.target.value as RolIntegrante
+                                            )}
+                                        >
+                                            {!['Integrante', 'Secretaria'].includes(integrante.rol) && (
+                                                <option value={integrante.rol}>{integrante.rol}</option>
+                                            )}
+                                            <option value="Integrante">Integrante</option>
+                                            <option value="Secretaria">Secretaria</option>
+                                        </select>
+                                    ) : (
+                                        <small>{integrante.rol}</small>
+                                    )}
                                 </div>
                             ))
                         )}
                     </div>
+                    {errorRol && <p className="member-error" role="alert">{errorRol}</p>}
                 </div>
             ) : (
                 <div className="group-panel">

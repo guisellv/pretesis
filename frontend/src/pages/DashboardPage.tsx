@@ -54,6 +54,7 @@ export default function DashboardPage({ nombreUsuario, usuarioId, onLogout }: Da
                         nombreGrupo={grupoSeleccionado?.nombre}
                         codigoGrupo={grupoSeleccionado?.codigo_acceso}
                         esAdministrador={grupoSeleccionado?.rol?.toLowerCase() === 'administrador'}
+                        esSecretaria={grupoSeleccionado?.rol?.toLowerCase() === 'secretaria'}
                         grupoId={grupoSeleccionado?.id ?? null}
                         usuarioId={usuarioId}
                     />

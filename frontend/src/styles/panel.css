@@ -1,5 +1,6 @@
 .panel-page {
     display: flex;
+    height: 100vh;
     min-height: 100vh;
     width: 100%;
     background: #F6F2F6;
@@ -94,6 +95,8 @@
 }
 
 .member-item span {
+    flex: 1;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -105,6 +108,23 @@
     font-size: 0.75rem;
 }
 
+.member-item select {
+    width: 8.5rem;
+    min-width: 0;
+    padding: 0.35rem;
+    border: 1px solid #B7A7AE;
+    border-radius: 0.3rem;
+    background: #ffffff;
+    color: #1C252C;
+    font-size: 0.75rem;
+}
+
+.member-error {
+    margin: 0.5rem 0 0;
+    color: #ffd1d1;
+    font-size: 0.85rem;
+}
+
 .empty-groups {
     margin: 0;
     color: #E1D5D9;
@@ -113,7 +133,7 @@
 
 .form-error {
     margin: 0.75rem 0 0;
-    color: #8a514b;
+    color: #d52e2e;
     font-size: 0.9rem;
     font-weight: 700;
 }
@@ -294,6 +314,106 @@
     resize: vertical;
 }
 
+.meeting-modal {
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-box select {
+    width: 100%;
+    padding: 0.75rem 0.8rem;
+    border: 1px solid #B7A7AE;
+    border-radius: 0.5rem;
+    background: #F6F2F6;
+    color: #1C252C;
+    font: inherit;
+}
+
+.modal-box select:focus {
+    outline: 2px solid #58545B;
+    outline-offset: 2px;
+}
+
+.modal-box select:disabled {
+    color: #58545B;
+    opacity: 0.8;
+}
+
+.meeting-modality {
+    margin: 0 0 1rem;
+    padding: 0;
+    border: none;
+}
+
+.meeting-modality legend {
+    margin-bottom: 0.5rem;
+    padding: 0;
+    font-weight: 700;
+}
+
+.meeting-modality-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+}
+
+.modal-box .meeting-modality-option {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0.75rem 0.8rem;
+    border: 1px solid #B7A7AE;
+    border-radius: 0.5rem;
+    background: #F6F2F6;
+    cursor: pointer;
+}
+
+.modal-box .meeting-modality-option input {
+    width: auto;
+    margin: 0;
+    accent-color: #1C252C;
+}
+
+.modal-box .meeting-modality-option.is-selected {
+    border-color: #1C252C;
+    background: #E9E1E8;
+}
+
+.meeting-modality:disabled .meeting-modality-option {
+    cursor: default;
+    opacity: 0.8;
+}
+
+.meeting-conflict {
+    margin-bottom: 1rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid #C9A227;
+    border-radius: 0.5rem;
+    background: #FFF6DB;
+    color: #1C252C;
+}
+
+.meeting-conflict p {
+    margin: 0 0 0.5rem;
+}
+
+.meeting-conflict p:last-child {
+    margin-bottom: 0;
+}
+
+.meeting-conflict ul {
+    margin: 0 0 0.5rem;
+    padding-left: 1.2rem;
+}
+
+.meeting-link {
+    font-weight: 400;
+    color: #1C252C;
+    word-break: break-all;
+}
+
 @media (max-width: 360px) {
     .meeting-date-time {
         grid-template-columns: 1fr;
@@ -357,14 +477,17 @@
 .panel-main {
     display: flex;
     min-width: 0;
+    min-height: 0;
     flex: 1;
     flex-direction: column;
     padding: 2rem;
 }
 
 .calendar-frame {
+    display: flex;
     min-height: 0;
     flex: 1;
+    flex-direction: column;
     padding: 2rem;
     border-radius: 0.8rem;
     background: #ffffff;
@@ -439,7 +562,8 @@
 }
 
 .rbc-calendar {
-    min-height: 650px;
+    min-height: 0;
+    flex: 1;
 }
 
 .calendar-frame .rbc-event {
@@ -456,6 +580,7 @@
 @media (max-width: 760px) {
     .panel-page {
         flex-direction: column;
+        height: auto;
     }
 
     .panel-sidebar {
@@ -466,4 +591,91 @@
         min-height: 650px;
         padding: 1rem;
     }
+}
+
+/* Formulario de la reunión (solo secretaria) */
+.acta-modal {
+    width: min(92vw, 640px);
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.acta-reunion-info {
+    margin: 0 0 1rem;
+    color: #58545B;
+}
+
+.modal-box .acta-textarea {
+    min-height: 16rem;
+    line-height: 1.5;
+}
+
+.acta-historial {
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid #B7A7AE;
+}
+
+.acta-historial h4 {
+    margin: 0 0 0.5rem;
+    font-size: 1rem;
+}
+
+.acta-historial ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    max-height: 10rem;
+    overflow-y: auto;
+}
+
+.acta-historial li {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.25rem 0.75rem;
+    padding: 0.4rem 0;
+    font-size: 0.9rem;
+}
+
+.acta-historial-fecha {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #58545B;
+    font-size: 0.85rem;
+}
+
+.acta-historial-activo {
+    background: #F6F2F6;
+    border-radius: 0.4rem;
+}
+
+.acta-historial-actual {
+    color: #58545B;
+    font-size: 0.85rem;
+}
+
+.acta-historial-ver {
+    padding: 0.2rem 0.6rem;
+    border: 1px solid #B7A7AE;
+    border-radius: 0.4rem;
+    background: #ffffff;
+    color: #1C252C;
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.acta-historial-ver:hover {
+    background: #F6F2F6;
+}
+
+.acta-version-aviso {
+    margin: 0 0 1rem;
+    padding: 0.6rem 0.8rem;
+    border-left: 3px solid #58545B;
+    border-radius: 0.4rem;
+    background: #F6F2F6;
+    font-size: 0.9rem;
 }
