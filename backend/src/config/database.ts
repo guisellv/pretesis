@@ -1,23 +1,10 @@
-import dotenv from "dotenv";
-import path from "path";
-import { Pool } from "pg";
-
-dotenv.config({ path: path.resolve(__dirname, "../../.env"), quiet: true });
-
-const HOST = process.env.HOST || "localhost";
-const DB_PORT = Number(process.env.DB_PORT || 5432);
-const DB_USERNAME = process.env.DB_USERNAME;
-const PASSWORD = process.env.PASSWORD;
-const DATABASE = process.env.DATABASE;
-
-if (!DB_USERNAME || !PASSWORD || !DATABASE) {
-    throw new Error("Faltan variables de entorno para la base de datos en el archivo .env");
-}
+import { Pool } from 'pg';
+import { DB_DATABASE, DB_HOST, DB_PASSWORD, DB_PORT, DB_USERNAME } from './configEnv';
 
 export const pool = new Pool({
-    host: HOST,
+    host: DB_HOST,
     port: DB_PORT,
     user: DB_USERNAME,
-    password: PASSWORD,
-    database: DATABASE,
+    password: DB_PASSWORD,
+    database: DB_DATABASE,
 });

@@ -19,12 +19,9 @@ type ListarGruposResponse = {
     grupos: Grupo[];
 };
 
-export async function crearGrupo(nombre: string, codigoAcceso: string, usuarioId: number) {
-    const { data } = await api.post<CrearGrupoResponse>('/grupos', {
-        nombre,
-        codigo_acceso: codigoAcceso,
-        usuario_id: usuarioId,
-    });
+// El código de acceso lo genera el backend
+export async function crearGrupo(nombre: string) {
+    const { data } = await api.post<CrearGrupoResponse>('/grupos', { nombre });
 
     return data.grupo;
 }

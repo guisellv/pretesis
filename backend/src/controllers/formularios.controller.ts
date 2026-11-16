@@ -1,51 +1,16 @@
 import { Response } from 'express';
 import { pool } from '../config/database';
+import { FormularioHistorial, FormularioReunion } from '../entities';
 import { AuthenticatedRequest } from '../middleware';
+import { GuardarFormularioDatos } from '../validations';
 
-type FalloValidacion = { status: number; error: string };
-
-// Roles que pueden crear y modificar el formulario. El resto de integrantes solo lo lee.
-const ROLES_EDITORES = ['administrador', 'secretaria'];
-
-async function validarAcceso(
-    reunionId: number,
-    usuarioId: number,
-    necesitaEditar: boolean
-): Promise<FalloValidacion | null> {
-    if (!Number.isInteger(reunionId) || reunionId <= 0) {
-        return { status: 400, error: 'La reunión no es válida' };
-    }
-
-    const reunion = await pool.query(
-        'SELECT grupo_id FROM reuniones WHERE id = $1',
-        [reunionId]
-    );
-
-    if (reunion.rowCount === 0) {
-        return { status: 404, error: 'La reunión no existe' };
-    }
-
-    const miembro = await pool.query(
-        `SELECT rol
-         FROM usuarios_grupos
-         WHERE usuario_id = $1 AND grupo_id = $2`,
-        [usuarioId, reunion.rows[0].grupo_id]
-    );
-
-    if ((miembro.rowCount ?? 0) === 0) {
-        return { status: 403, error: 'No perteneces a este grupo' };
-    }
-
-    const rol = String(miembro.rows[0].rol).toLowerCase();
-    if (necesitaEditar && !ROLES_EDITORES.includes(rol)) {
-        return { status: 403, error: 'Solo el administrador o la secretaria pueden modificar el formulario' };
-    }
-
-    return null;
-}
+// Los permisos se validan antes de llegar aquí (ver routes/reuniones.routes.ts):
+// - requireMiembro: cualquier integrante del grupo puede leer el formulario
+// - requireEditorFormulario: solo administrador o secretaria pueden guardarlo
+// El contenido ya viene validado por src/validations/formulario.validation.ts
 
 async function listarHistorial(reunionId: number) {
-    const result = await pool.query(
+    const result = await pool.query<FormularioHistorial & { usuario_nombre: string }>(
         `SELECT h.id, h.accion, h.fecha, h.usuario_id, h.contenido,
                 COALESCE(u."nombreCompleto", 'Usuario eliminado') AS usuario_nombre
          FROM formularios_historial h
@@ -61,13 +26,8 @@ async function listarHistorial(reunionId: number) {
 export async function obtenerFormulario(req: AuthenticatedRequest, res: Response): Promise<any> {
     try {
         const reunionId = Number(req.params.id);
-        const fallo = await validarAcceso(reunionId, req.user!.id, false);
 
-        if (fallo) {
-            return res.status(fallo.status).json({ error: fallo.error });
-        }
-
-        const result = await pool.query(
+        const result = await pool.query<FormularioReunion>(
             `SELECT reunion_id, contenido, actualizado_en
              FROM formularios_reunion
              WHERE reunion_id = $1`,
@@ -90,18 +50,7 @@ export async function guardarFormulario(req: AuthenticatedRequest, res: Response
     try {
         const reunionId = Number(req.params.id);
         const usuarioId = req.user!.id;
-        const { contenido } = req.body;
-
-        const fallo = await validarAcceso(reunionId, usuarioId, true);
-        if (fallo) {
-            return res.status(fallo.status).json({ error: fallo.error });
-        }
-
-        if (typeof contenido !== 'string' || !contenido.trim()) {
-            return res.status(400).json({ error: 'El formulario no puede estar vacío' });
-        }
-
-        const contenidoLimpio = contenido.trim();
+        const { contenido: contenidoLimpio } = req.body as GuardarFormularioDatos;
 
         // Transacción: el formulario y su registro en el historial se guardan juntos o ninguno
         await client.query('BEGIN');
@@ -125,7 +74,7 @@ export async function guardarFormulario(req: AuthenticatedRequest, res: Response
             });
         }
 
-        const result = await client.query(
+        const result = await client.query<FormularioReunion>(
             `INSERT INTO formularios_reunion (reunion_id, contenido, actualizado_en)
              VALUES ($1, $2, NOW())
              ON CONFLICT (reunion_id)

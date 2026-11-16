@@ -1,19 +1,21 @@
 import { Response } from 'express';
 import { pool } from '../config/database';
+import { Grupo, RolGrupo } from '../entities';
+import { generarCodigoGrupo, largoParaIntento } from '../helpers/codigoGrupo.helper';
 import { AuthenticatedRequest } from '../middleware';
-import { tituloValido } from '../helpers/titulo.helper';
+import { ActualizarRolDatos, CrearGrupoDatos, UnirseGrupoDatos } from '../validations';
+
+const MAX_INTENTOS_CODIGO = 15;
 
 export async function listarGrupos(req: AuthenticatedRequest, res: Response): Promise<any> {
     try {
-        const usuarioId = req.user!.id;
-
-        const result = await pool.query(
+        const result = await pool.query<Grupo & { rol: RolGrupo }>(
             `SELECT g.id, g.nombre, g.codigo_acceso, ug.rol
              FROM grupos g
              INNER JOIN usuarios_grupos ug ON ug.grupo_id = g.id
              WHERE ug.usuario_id = $1
              ORDER BY g.id`,
-            [usuarioId]
+            [req.user!.id]
         );
 
         return res.status(200).json({ grupos: result.rows });
@@ -25,59 +27,68 @@ export async function listarGrupos(req: AuthenticatedRequest, res: Response): Pr
     }
 }
 
+// El código de acceso lo genera el servidor (no el cliente) y se garantiza que sea único:
+// si choca con uno existente se genera otro, y si siguen chocando se alarga (ver codigoGrupo.helper.ts).
 export async function crearGrupo(req: AuthenticatedRequest, res: Response): Promise<any> {
+    const { nombre } = req.body as CrearGrupoDatos;
+    const usuarioId = req.user!.id;
+    const client = await pool.connect();
+
     try {
-        const { nombre, codigo_acceso } = req.body;
-        const usuarioId = req.user!.id;
+        for (let intento = 0; intento < MAX_INTENTOS_CODIGO; intento++) {
+            const codigo = generarCodigoGrupo(largoParaIntento(intento));
 
-        if (!nombre || !codigo_acceso) {
-            return res.status(400).json({
-                error: 'El nombre y el código del grupo son obligatorios'
-            });
-        }
+            try {
+                await client.query('BEGIN');
 
-        if (!tituloValido(nombre)) {
-            return res.status(400).json({
-                error: 'El nombre del grupo debe tener al menos una letra, no puede ser solo números'
-            });
-        }
+                const result = await client.query<Grupo>(
+                    `INSERT INTO grupos (nombre, codigo_acceso)
+                     VALUES ($1, $2)
+                     RETURNING id, nombre, codigo_acceso`,
+                    [nombre, codigo]
+                );
 
-        const result = await pool.query(
-            `INSERT INTO grupos (nombre, codigo_acceso)
-             VALUES ($1, $2)
-             RETURNING id, nombre, codigo_acceso`,
-            [nombre.trim(), codigo_acceso]
-        );
+                await client.query(
+                    `INSERT INTO usuarios_grupos (usuario_id, grupo_id, rol)
+                     VALUES ($1, $2, 'Administrador')`,
+                    [usuarioId, result.rows[0].id]
+                );
 
-        await pool.query(
-            `INSERT INTO usuarios_grupos (usuario_id, grupo_id, rol)
-             VALUES ($1, $2, 'Administrador')`,
-            [usuarioId, result.rows[0].id]
-        );
+                await client.query('COMMIT');
 
-        return res.status(201).json({
-            mensaje: 'Grupo creado exitosamente',
-            grupo: { ...result.rows[0], rol: 'Administrador' }
-        });
-    } catch (error: any) {
-        if (error.code === '23505') {
-            return res.status(400).json({
-                error: 'El código del grupo ya existe'
-            });
+                return res.status(201).json({
+                    mensaje: 'Grupo creado exitosamente',
+                    grupo: { ...result.rows[0], rol: 'Administrador' }
+                });
+            } catch (error: any) {
+                await client.query('ROLLBACK');
+
+                // Código repetido: se intenta con otro
+                if (error.code === '23505' && error.constraint === 'grupos_codigo_acceso_key') continue;
+
+                throw error;
+            }
         }
 
         return res.status(500).json({
+            error: 'No se pudo generar un código único para el grupo. Inténtalo nuevamente'
+        });
+    } catch (error) {
+        console.error('Error al crear grupo:', error);
+        return res.status(500).json({
             error: 'No se pudo crear el grupo'
         });
+    } finally {
+        client.release();
     }
 }
 
 export async function unirseGrupo(req: AuthenticatedRequest, res: Response): Promise<any> {
     try {
-        const { codigo_acceso } = req.body;
+        const { codigo_acceso } = req.body as UnirseGrupoDatos;
         const usuarioId = req.user!.id;
 
-        const grupoResult = await pool.query(
+        const grupoResult = await pool.query<Pick<Grupo, 'id' | 'nombre'>>(
             'SELECT id, nombre FROM grupos WHERE codigo_acceso = $1',
             [codigo_acceso]
         );
@@ -102,7 +113,7 @@ export async function unirseGrupo(req: AuthenticatedRequest, res: Response): Pro
             grupo: {
                 id: grupo.id,
                 nombre: grupo.nombre,
-                codigo_acceso: codigo_acceso,
+                codigo_acceso,
                 rol: 'Integrante'
             }
         });
@@ -127,34 +138,16 @@ export async function unirseGrupo(req: AuthenticatedRequest, res: Response): Pro
     }
 }
 
+// requireMiembro ya verificó que el usuario pertenece al grupo
 export async function listarIntegrantes(req: AuthenticatedRequest, res: Response): Promise<any> {
     try {
-        const grupoId = Number(req.params.grupoId);
-
-        if (!Number.isInteger(grupoId)) {
-            return res.status(400).json({
-                error: 'El grupo es obligatorio'
-            });
-        }
-
-        const pertenece = await pool.query(
-            'SELECT 1 FROM usuarios_grupos WHERE usuario_id = $1 AND grupo_id = $2',
-            [req.user?.id, grupoId]
-        );
-
-        if ((pertenece.rowCount ?? 0) === 0) {
-            return res.status(403).json({
-                error: 'No perteneces a este grupo'
-            });
-        }
-
-        const result = await pool.query(
+        const result = await pool.query<{ id: number; nombre: string; rol: RolGrupo }>(
             `SELECT u.id, u."nombreCompleto" AS nombre, ug.rol
              FROM usuarios_grupos ug
              INNER JOIN users u ON u.id = ug.usuario_id
              WHERE ug.grupo_id = $1
              ORDER BY LOWER(ug.rol) = 'administrador' DESC, u."nombreCompleto"`,
-            [grupoId]
+            [req.grupo!.id]
         );
 
         return res.status(200).json({ integrantes: result.rows });
@@ -166,26 +159,18 @@ export async function listarIntegrantes(req: AuthenticatedRequest, res: Response
     }
 }
 
+// requireAdmin ya verificó que quien hace el cambio es el administrador del grupo
 export async function actualizarRolIntegrante(req: AuthenticatedRequest, res: Response): Promise<any> {
     try {
-        const grupoId = Number(req.params.grupoId);
         const usuarioId = Number(req.params.usuarioId);
-        const { rol } = req.body;
+        const { rol } = req.body as ActualizarRolDatos;
 
-        if (!Number.isInteger(grupoId) || grupoId <= 0 || !Number.isInteger(usuarioId) || usuarioId <= 0) {
-            return res.status(400).json({ error: 'El grupo y el integrante son obligatorios' });
-        }
-
-        if (rol !== 'Integrante' && rol !== 'Secretaria') {
-            return res.status(400).json({ error: 'El rol debe ser Integrante o Secretaria' });
-        }
-
-        const result = await pool.query(
+        const result = await pool.query<{ id: number; rol: RolGrupo }>(
             `UPDATE usuarios_grupos
              SET rol = $1
              WHERE grupo_id = $2 AND usuario_id = $3 AND LOWER(rol) <> 'administrador'
              RETURNING usuario_id AS id, rol`,
-            [rol, grupoId, usuarioId]
+            [rol, req.grupo!.id, usuarioId]
         );
 
         if ((result.rowCount ?? 0) === 0) {

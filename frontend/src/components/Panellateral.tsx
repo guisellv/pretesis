@@ -21,18 +21,6 @@ type PanellateralProps = {
     onSeleccionarGrupo: (grupo: Grupo) => void;
 };
 
-function generarClaveUnica(): string {
-    const letras = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    let clave = "";
-
-    for (let i = 0; i < 5; i++) {
-        const indice = Math.floor(Math.random() * letras.length);
-        clave += letras[indice];
-    }
-
-    return clave;
-}
-
 export default function Panellateral({
     nombreUsuario,
     usuarioId,
@@ -46,7 +34,6 @@ export default function Panellateral({
     const [modalAbierta, setModalAbierta] = useState(false);
     const [tipoAccion, setTipoAccion] = useState<"crear" | "unirse" | null>(null);
     const [nombreGrupo, setNombreGrupo] = useState("");
-    const [claveGrupo, setClaveGrupo] = useState(generarClaveUnica());
     const [error, setError] = useState("");
     const [guardando, setGuardando] = useState(false);
     const [codigoGrupo, setCodigoGrupo] = useState("");
@@ -104,7 +91,6 @@ export default function Panellateral({
     const abrirCrearGrupo = () => {
         setTipoAccion("crear");
         setNombreGrupo("");
-        setClaveGrupo(generarClaveUnica());
         setError("");
         setModalAbierta(true);
     };
@@ -143,7 +129,7 @@ export default function Panellateral({
                 return;
             }
 
-            const grupo = await crearGrupo(nombreGrupo.trim(), claveGrupo, usuarioId);
+            const grupo = await crearGrupo(nombreGrupo.trim());
             onGrupoCreado(grupo);
             cerrarModal();
         } catch {
@@ -273,8 +259,7 @@ export default function Panellateral({
                                         </label>
 
                                         <div className="clave-box">
-                                            <span>Clave:</span>
-                                            <strong>{claveGrupo}</strong>
+                                            <span>La clave del grupo se genera automáticamente al guardarlo.</span>
                                         </div>
 
                                         <button type="button" className="primary-button" onClick={guardarGrupo} disabled={guardando}>

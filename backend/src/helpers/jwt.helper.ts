@@ -1,19 +1,10 @@
 import jwt from 'jsonwebtoken';
-
-export function obtenerSecreto(): string {
-    const secreto = process.env.JWT_SECRET;
-
-    if (!secreto) {
-        throw new Error('Falta la variable JWT_SECRET en el archivo .env');
-    }
-
-    return secreto;
-}
+import { JWT_EXPIRES_IN, JWT_SECRET } from '../config/configEnv';
 
 export function generarToken(id: number): string {
-    return jwt.sign(
-        { id },
-        obtenerSecreto(),
-        { expiresIn: '8h' }
-    );
+    return jwt.sign({ id }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+}
+
+export function verificarToken(token: string): { id: number } {
+    return jwt.verify(token, JWT_SECRET) as { id: number };
 }

@@ -81,3 +81,83 @@
     color: #58545B;
     text-decoration: underline;
 }
+
+.auth-switch {
+    display: block;
+    margin: 0 auto;
+    cursor: pointer;
+}
+
+.auth-back {
+    margin-top: 0.75rem;
+}
+
+.auth-hint {
+    margin: -0.75rem 0 1.25rem;
+    color: #58545B;
+    font-size: 0.9rem;
+}
+
+.auth-link {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #58545B;
+    font-size: 0.85rem;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.auth-forgot {
+    justify-self: end;
+    margin-top: -0.5rem;
+}
+
+.auth-submit:disabled {
+    opacity: 0.7;
+    cursor: wait;
+}
+
+.auth-card input[readonly] {
+    color: #58545B;
+    cursor: not-allowed;
+}
+
+.password-field {
+    position: relative;
+    display: block;
+}
+
+.password-field input {
+    padding-right: 2.75rem;
+}
+
+.password-toggle {
+    position: absolute;
+    top: 50%;
+    right: 0.5rem;
+    display: grid;
+    place-items: center;
+    padding: 0.25rem;
+    border: 0;
+    border-radius: 0.35rem;
+    background: transparent;
+    color: #58545B;
+    transform: translateY(-50%);
+    cursor: pointer;
+}
+
+.password-toggle:hover {
+    color: #1C252C;
+}
+
+.password-toggle:focus-visible {
+    outline: 2px solid #58545B;
+    outline-offset: 1px;
+}
+
+/* Oculta el ojo nativo de Edge para que no aparezcan dos */
+.password-field input::-ms-reveal,
+.password-field input::-ms-clear {
+    display: none;
+}

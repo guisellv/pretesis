@@ -6,17 +6,33 @@ import {
     eliminarReunion,
 } from '../controllers/reuniones.controller';
 import { obtenerFormulario, guardarFormulario } from '../controllers/formularios.controller';
-import { requireAuth, requireAdmin } from '../middleware';
+import { requireAdmin, requireAuth, requireEditorFormulario, requireMiembro, validar } from '../middleware';
+import {
+    actualizarReunionSchema,
+    crearReunionSchema,
+    guardarFormularioSchema,
+    listarReunionesQuerySchema,
+    reunionParamsSchema,
+} from '../validations';
 
 const router = Router();
 
-// Formulario de la reunión: todos los del grupo lo leen; solo administrador y secretaria lo modifican
-router.get('/:id/formulario', requireAuth, obtenerFormulario);
-router.put('/:id/formulario', requireAuth, guardarFormulario);
+// Todas las rutas de reuniones requieren haber iniciado sesión
+router.use(requireAuth);
 
-router.get('/', requireAuth, listarReuniones);
-router.post('/', requireAuth, requireAdmin, crearReunion);
-router.put('/:id', requireAuth, requireAdmin, actualizarReunion);
-router.delete('/:id', requireAuth, requireAdmin, eliminarReunion);
+// Reuniones: todos los del grupo las ven; solo el administrador las crea, edita y elimina
+router.get('/', validar({ query: listarReunionesQuerySchema }), requireMiembro, listarReuniones);
+router.post('/', validar({ body: crearReunionSchema }), requireAdmin, crearReunion);
+router.put('/:id', validar({ params: reunionParamsSchema, body: actualizarReunionSchema }), requireAdmin, actualizarReunion);
+router.delete('/:id', validar({ params: reunionParamsSchema }), requireAdmin, eliminarReunion);
+
+// Formulario de la reunión: todos los del grupo lo leen; solo administrador y secretaria lo modifican
+router.get('/:id/formulario', validar({ params: reunionParamsSchema }), requireMiembro, obtenerFormulario);
+router.put(
+    '/:id/formulario',
+    validar({ params: reunionParamsSchema, body: guardarFormularioSchema }),
+    requireEditorFormulario,
+    guardarFormulario
+);
 
 export default router;
