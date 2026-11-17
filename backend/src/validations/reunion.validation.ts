@@ -4,10 +4,12 @@ import { calcularFechaFin, esFechaValida } from '../helpers/fecha.helper';
 import { idSchema, textoOpcional, tituloSchema } from './comun.validation';
 
 // Las fechas llegan como "YYYY-MM-DDTHH:MM" en hora local (sin zona horaria)
-const fechaSchema = z
-    .string({ error: 'La fecha de inicio es obligatoria' })
-    .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/, 'La fecha de inicio no es válida')
-    .refine(esFechaValida, 'La fecha de inicio no es válida');
+function fechaSchema(campo: string) {
+    return z
+        .string({ error: `${campo} es obligatoria` })
+        .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/, `${campo} no es válida`)
+        .refine(esFechaValida, `${campo} no es válida`);
+}
 
 const camposReunion = {
     titulo: tituloSchema(
@@ -15,8 +17,12 @@ const camposReunion = {
         'El título de la reunión debe tener al menos una letra, no puede ser solo números'
     ),
     descripcion: textoOpcional(),
-    fecha_inicio: fechaSchema,
-    fecha_fin: fechaSchema.optional(),
+    fecha_inicio: fechaSchema('La fecha de inicio'),
+    // El frontend envía "" cuando no se indica la hora de término; en ese caso dura 1 hora
+    fecha_fin: z.preprocess(
+        (valor) => (valor === '' || valor === null ? undefined : valor),
+        fechaSchema('La hora de término').optional()
+    ),
     modalidad: z.preprocess(
         (valor) => (typeof valor === 'string' ? valor.trim().toLowerCase() : valor),
         z.enum(MODALIDADES_REUNION, { error: 'Selecciona si la reunión es online o presencial' })
