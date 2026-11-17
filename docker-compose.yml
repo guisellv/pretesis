@@ -1,0 +1,59 @@
+services:
+  # Base de datos PostgreSQL
+  db:
+    image: postgres:16-alpine
+    container_name: pretesis-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${PASSWORD}
+      POSTGRES_DB: ${DATABASE}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # API (Express + TypeScript)
+  backend:
+    build:
+      context: ./backend
+    image: pretesis-backend
+    container_name: pretesis-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+    environment:
+      HOST: db
+      DB_PORT: 5432
+      DB_USERNAME: ${DB_USERNAME}
+      PASSWORD: ${PASSWORD}
+      DATABASE: ${DATABASE}
+      JWT_SECRET: ${JWT_SECRET}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+
+  # Página (React + Vite)
+  frontend:
+    build:
+      context: ./frontend
+    image: pretesis-frontend
+    container_name: pretesis-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8080:4173"
+    environment:
+      API_URL: http://backend:3001
+
+volumes:
+  db_data:
