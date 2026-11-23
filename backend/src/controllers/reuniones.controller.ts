@@ -48,9 +48,14 @@ export async function listarReuniones(req: AuthenticatedRequest, res: Response):
 // (para la tabla de Reuniones y el calendario de Inicio)
 export async function listarMisReuniones(req: AuthenticatedRequest, res: Response): Promise<any> {
     try {
-        const result = await pool.query<Reunion & { grupo_nombre: string; rol: string }>(
+        const result = await pool.query<Reunion & { grupo_nombre: string; rol: string; mi_asistencia: string | null; confirmados: number }>(
             `SELECT ${COLUMNAS_REUNION.split(', ').map((columna) => `r.${columna}`).join(', ')},
-                    g.nombre AS grupo_nombre, ug.rol
+                    g.nombre AS grupo_nombre, ug.rol,
+                    (SELECT a.estado FROM asistencias a
+                     WHERE a.reunion_id = r.id AND a.usuario_id = $1) AS mi_asistencia,
+                    (SELECT COUNT(*)::int FROM asistencias a
+                     INNER JOIN usuarios_grupos m ON m.usuario_id = a.usuario_id AND m.grupo_id = r.grupo_id
+                     WHERE a.reunion_id = r.id AND a.estado = 'asistire') AS confirmados
              FROM reuniones r
              INNER JOIN grupos g ON g.id = r.grupo_id
              INNER JOIN usuarios_grupos ug ON ug.grupo_id = r.grupo_id
@@ -145,6 +150,11 @@ export async function actualizarReunion(req: AuthenticatedRequest, res: Response
                 reunionId,
             ]
         );
+
+        // Si cambió la fecha, las confirmaciones anteriores ya no sirven: cada integrante vuelve a confirmar
+        if (!misma_fecha) {
+            await pool.query('DELETE FROM asistencias WHERE reunion_id = $1', [reunionId]);
+        }
 
         notificarReunionModificada(anterior, result.rows[0], req.user!.id);
 

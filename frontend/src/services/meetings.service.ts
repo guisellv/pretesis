@@ -15,10 +15,12 @@ export type Reunion = {
 
 export type Modalidad = 'online' | 'presencial';
 
-// Reunión con el nombre del grupo y el rol del usuario en ese grupo (GET /reuniones/mias)
+// Reunión con el nombre del grupo, el rol del usuario en ese grupo y la asistencia (GET /reuniones/mias)
 export type ReunionConGrupo = Reunion & {
     grupo_nombre: string;
     rol: string;
+    mi_asistencia: EstadoAsistencia | null; // lo que respondió el usuario con sesión
+    confirmados: number; // integrantes que dijeron que asistirán
 };
 
 // Reunión del grupo con la que se cruza el horario (respuesta 409 del backend)
@@ -105,4 +107,25 @@ export async function guardarFormularioActa(reunionId: number, contenido: string
 
 export async function eliminarReunion(id: number, usuarioId: number) {
     await api.delete(`/reuniones/${id}`, { params: { usuario_id: usuarioId } });
+}
+export type EstadoAsistencia = 'asistire' | 'no_asistire';
+
+// Integrante del grupo con su respuesta (null = todavía no responde)
+export type AsistenciaIntegrante = {
+    id: number;
+    nombre: string;
+    rol: string;
+    estado: EstadoAsistencia | null;
+};
+
+type AsistenciaResponse = { integrantes: AsistenciaIntegrante[] };
+
+export async function obtenerAsistencia(reunionId: number) {
+    const { data } = await api.get<AsistenciaResponse>(`/reuniones/${reunionId}/asistencia`);
+    return data.integrantes;
+}
+
+export async function confirmarAsistencia(reunionId: number, estado: EstadoAsistencia) {
+    const { data } = await api.put<AsistenciaResponse>(`/reuniones/${reunionId}/asistencia`, { estado });
+    return data.integrantes;
 }

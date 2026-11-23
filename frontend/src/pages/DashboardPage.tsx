@@ -3,7 +3,7 @@ import { Calendar } from '../components/Calendar';
 import Panellateral, { type Seccion } from '../components/Panellateral';
 import { ReunionModal, type ModoReunion } from '../components/ReunionModal';
 import { listarGrupos, type Grupo } from '../services/groups.service';
-import { listarMisReuniones, type ReunionConGrupo } from '../services/meetings.service';
+import { listarMisReuniones, type EstadoAsistencia, type ReunionConGrupo } from '../services/meetings.service';
 import { obtenerUsuarioActual } from '../services/users.service';
 import { esRolAdministrador, mensajeError } from '../helpers/formato';
 import GruposPage from './GruposPage';
@@ -65,6 +65,13 @@ export default function DashboardPage({ nombreUsuario, usuarioId, onLogout }: Da
             return lista.sort((a, b) => a.fecha_inicio.localeCompare(b.fecha_inicio));
         });
         setReunionAbierta(null);
+        cargarReuniones(); // si cambió la fecha, el backend reinicia las confirmaciones de asistencia
+    };
+
+    const asistenciaCambiada = (reunionId: number, estado: EstadoAsistencia, confirmados: number) => {
+        setReuniones((actuales) => actuales.map((reunion) => (
+            reunion.id === reunionId ? { ...reunion, mi_asistencia: estado, confirmados } : reunion
+        )));
     };
 
     const reunionEliminada = (id: number) => {
@@ -145,6 +152,7 @@ export default function DashboardPage({ nombreUsuario, usuarioId, onLogout }: Da
                     usuarioId={usuarioId}
                     onGuardada={reunionGuardada}
                     onEliminada={reunionEliminada}
+                    onAsistenciaCambiada={asistenciaCambiada}
                     onCerrar={() => setReunionAbierta(null)}
                 />
             )}

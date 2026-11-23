@@ -5,21 +5,25 @@ import {
     crearGrupo,
     eliminarGrupo,
     listarIntegrantes,
+    quitarIntegrante,
+    regenerarCodigo,
+    salirDelGrupo,
     unirseGrupo,
     type Grupo,
     type Integrante,
     type RolIntegrante,
 } from '../services/groups.service';
 import { tituloValido } from '../helpers/titulo';
-import { esRolAdministrador, fechaCorta, fechaHora, mensajeError } from '../helpers/formato';
+import { coincideBusqueda, esRolAdministrador, fechaCorta, fechaHora, mensajeError } from '../helpers/formato';
 import { ConfirmModal, Modal } from '../components/Modal';
+import { FiltroSelect, FiltrosTabla } from '../components/FiltrosTabla';
 
 type GruposPageProps = {
     grupos: Grupo[];
     usuarioId: number | null;
     onAgregado: (grupo: Grupo) => void;
     onActualizado: (grupo: Grupo) => void;
-    onEliminado: (grupoId: number) => void;
+    onEliminado: (grupoId: number) => void; // también al salir del grupo
 };
 
 type Dialogo =
@@ -27,13 +31,27 @@ type Dialogo =
     | { tipo: 'unirse' }
     | { tipo: 'ver'; grupo: Grupo }
     | { tipo: 'modificar'; grupo: Grupo }
-    | { tipo: 'eliminar'; grupo: Grupo };
+    | { tipo: 'eliminar'; grupo: Grupo }
+    | { tipo: 'salir'; grupo: Grupo };
+
+type FiltroRol = 'todos' | 'Administrador' | 'Secretaria' | 'Integrante';
+
+const filtrosIniciales = { busqueda: '', rol: 'todos' as FiltroRol };
 
 export default function GruposPage({ grupos, usuarioId, onAgregado, onActualizado, onEliminado }: GruposPageProps) {
     const [dialogo, setDialogo] = useState<Dialogo | null>(null);
     const [texto, setTexto] = useState(''); // nombre del grupo o código, según el diálogo
     const [error, setError] = useState('');
     const [procesando, setProcesando] = useState(false);
+    const [filtros, setFiltros] = useState(filtrosIniciales);
+
+    // El número (#) se asigna antes de filtrar, así un grupo mantiene su número al buscar
+    const numerados = grupos.map((grupo, indice) => ({ grupo, numero: indice + 1 }));
+    const filtrados = numerados.filter(({ grupo }) => (
+        coincideBusqueda(filtros.busqueda, grupo.nombre)
+        && (filtros.rol === 'todos' || grupo.rol.toLowerCase() === filtros.rol.toLowerCase())
+    ));
+    const hayFiltros = filtros.busqueda !== '' || filtros.rol !== 'todos';
 
     const abrir = (nuevo: Dialogo) => {
         setDialogo(nuevo);
@@ -106,6 +124,13 @@ export default function GruposPage({ grupos, usuarioId, onAgregado, onActualizad
         }, 'No se pudo eliminar el grupo.');
     };
 
+    const salir = (grupo: Grupo) => {
+        ejecutar(async () => {
+            await salirDelGrupo(grupo.id);
+            onEliminado(grupo.id);
+        }, 'No se pudo salir del grupo.');
+    };
+
     return (
         <section className="page-card">
             <header className="page-header">
@@ -123,6 +148,30 @@ export default function GruposPage({ grupos, usuarioId, onAgregado, onActualizad
                 </div>
             </header>
 
+            {grupos.length > 0 && (
+                <FiltrosTabla
+                    busqueda={filtros.busqueda}
+                    onBusqueda={(busqueda) => setFiltros({ ...filtros, busqueda })}
+                    placeholder="Buscar grupo por nombre"
+                    total={grupos.length}
+                    visibles={filtrados.length}
+                    hayFiltros={hayFiltros}
+                    onLimpiar={() => setFiltros(filtrosIniciales)}
+                >
+                    <FiltroSelect
+                        etiqueta="Mi rol"
+                        valor={filtros.rol}
+                        onCambiar={(rol) => setFiltros({ ...filtros, rol })}
+                        opciones={[
+                            { valor: 'todos', texto: 'Todos' },
+                            { valor: 'Administrador', texto: 'Administrador' },
+                            { valor: 'Secretaria', texto: 'Secretaria' },
+                            { valor: 'Integrante', texto: 'Integrante' },
+                        ]}
+                    />
+                </FiltrosTabla>
+            )}
+
             <div className="table-wrapper">
                 <table className="data-table">
                     <thead>
@@ -137,18 +186,20 @@ export default function GruposPage({ grupos, usuarioId, onAgregado, onActualizad
                         </tr>
                     </thead>
                     <tbody>
-                        {grupos.length === 0 ? (
+                        {filtrados.length === 0 ? (
                             <tr>
                                 <td colSpan={7} className="table-empty">
-                                    Todavía no tienes grupos. Crea uno o únete con un código.
+                                    {grupos.length === 0
+                                        ? 'Todavía no tienes grupos. Crea uno o únete con un código.'
+                                        : 'Ningún grupo coincide con los filtros.'}
                                 </td>
                             </tr>
-                        ) : grupos.map((grupo, indice) => {
+                        ) : filtrados.map(({ grupo, numero }) => {
                             const esAdmin = esRolAdministrador(grupo.rol);
 
                             return (
                                 <tr key={grupo.id}>
-                                    <td className="col-id">{indice + 1}</td>
+                                    <td className="col-id">{numero}</td>
                                     <td>
                                         <span className="cell-strong">{grupo.nombre}</span>
                                         <span className={`role-badge${esAdmin ? ' is-admin' : ''}`}>{grupo.rol}</span>
@@ -166,7 +217,7 @@ export default function GruposPage({ grupos, usuarioId, onAgregado, onActualizad
                                             <button type="button" className="link-button" onClick={() => abrir({ tipo: 'ver', grupo })}>
                                                 Ver
                                             </button>
-                                            {esAdmin && (
+                                            {esAdmin ? (
                                                 <>
                                                     <button type="button" className="link-button" onClick={() => abrir({ tipo: 'modificar', grupo })}>
                                                         Modificar
@@ -175,6 +226,10 @@ export default function GruposPage({ grupos, usuarioId, onAgregado, onActualizad
                                                         Eliminar
                                                     </button>
                                                 </>
+                                            ) : (
+                                                <button type="button" className="link-button is-danger" onClick={() => abrir({ tipo: 'salir', grupo })}>
+                                                    Salir
+                                                </button>
                                             )}
                                         </div>
                                     </td>
@@ -247,7 +302,14 @@ export default function GruposPage({ grupos, usuarioId, onAgregado, onActualizad
                 </Modal>
             )}
 
-            {dialogo?.tipo === 'ver' && <DetalleGrupo grupo={dialogo.grupo} onCerrar={cerrar} />}
+            {dialogo?.tipo === 'ver' && (
+                <DetalleGrupo
+                    grupo={dialogo.grupo}
+                    usuarioId={usuarioId}
+                    onActualizado={onActualizado}
+                    onCerrar={cerrar}
+                />
+            )}
 
             {dialogo?.tipo === 'eliminar' && (
                 <ConfirmModal
@@ -265,15 +327,45 @@ export default function GruposPage({ grupos, usuarioId, onAgregado, onActualizad
                     onCerrar={cerrar}
                 />
             )}
+
+            {dialogo?.tipo === 'salir' && (
+                <ConfirmModal
+                    titulo="Salir del grupo"
+                    mensaje={(
+                        <p>
+                            ¿Seguro que quieres salir de <strong>{dialogo.grupo.nombre}</strong>? Dejarás de ver sus reuniones.
+                            Para volver a entrar necesitarás el código del grupo.
+                        </p>
+                    )}
+                    textoConfirmar="Salir del grupo"
+                    textoProcesando="Saliendo..."
+                    procesando={procesando}
+                    error={error}
+                    onConfirmar={() => salir(dialogo.grupo)}
+                    onCerrar={cerrar}
+                />
+            )}
         </section>
     );
 }
 
-// Detalle del grupo: datos, código e integrantes. El administrador puede cambiar el rol de los integrantes.
-function DetalleGrupo({ grupo, onCerrar }: { grupo: Grupo; onCerrar: () => void }) {
+type DetalleGrupoProps = {
+    grupo: Grupo;
+    usuarioId: number | null;
+    onActualizado: (grupo: Grupo) => void;
+    onCerrar: () => void;
+};
+
+// Detalle del grupo: datos, código e integrantes.
+// El administrador puede regenerar el código, cambiar el rol de los integrantes y quitarlos del grupo.
+function DetalleGrupo({ grupo: grupoInicial, usuarioId, onActualizado, onCerrar }: DetalleGrupoProps) {
+    const [grupo, setGrupo] = useState(grupoInicial);
     const [integrantes, setIntegrantes] = useState<Integrante[]>([]);
     const [cargando, setCargando] = useState(true);
     const [actualizando, setActualizando] = useState<number | null>(null);
+    const [porQuitar, setPorQuitar] = useState<Integrante | null>(null);
+    const [confirmandoCodigo, setConfirmandoCodigo] = useState(false);
+    const [regenerando, setRegenerando] = useState(false);
     const [error, setError] = useState('');
     const esAdmin = esRolAdministrador(grupo.rol);
 
@@ -296,6 +388,11 @@ function DetalleGrupo({ grupo, onCerrar }: { grupo: Grupo; onCerrar: () => void 
         };
     }, [grupo.id]);
 
+    const actualizarGrupoLocal = (actualizado: Grupo) => {
+        setGrupo(actualizado);
+        onActualizado(actualizado);
+    };
+
     const cambiarRol = async (integranteId: number, rol: RolIntegrante) => {
         setActualizando(integranteId);
         setError('');
@@ -309,6 +406,35 @@ function DetalleGrupo({ grupo, onCerrar }: { grupo: Grupo; onCerrar: () => void 
             setError('No se pudo actualizar el rol. Inténtalo nuevamente.');
         } finally {
             setActualizando(null);
+        }
+    };
+
+    const quitar = async (integrante: Integrante) => {
+        setActualizando(integrante.id);
+        setError('');
+
+        try {
+            actualizarGrupoLocal(await quitarIntegrante(grupo.id, integrante.id));
+            setIntegrantes((actuales) => actuales.filter((item) => item.id !== integrante.id));
+            setPorQuitar(null);
+        } catch (errorDesconocido: unknown) {
+            setError(mensajeError(errorDesconocido, 'No se pudo quitar al integrante.'));
+        } finally {
+            setActualizando(null);
+        }
+    };
+
+    const nuevoCodigo = async () => {
+        setRegenerando(true);
+        setError('');
+
+        try {
+            actualizarGrupoLocal(await regenerarCodigo(grupo.id));
+            setConfirmandoCodigo(false);
+        } catch (errorDesconocido: unknown) {
+            setError(mensajeError(errorDesconocido, 'No se pudo generar un nuevo código.'));
+        } finally {
+            setRegenerando(false);
         }
     };
 
@@ -331,13 +457,41 @@ function DetalleGrupo({ grupo, onCerrar }: { grupo: Grupo; onCerrar: () => void 
                 </div>
                 <div>
                     <dt>Código del grupo</dt>
-                    <dd>{esAdmin ? <code className="code-chip">{grupo.codigo_acceso}</code> : '—'}</dd>
+                    <dd>
+                        {esAdmin ? (
+                            <span className="code-row">
+                                <code className="code-chip">{grupo.codigo_acceso}</code>
+                                {!confirmandoCodigo && (
+                                    <button type="button" className="link-button" onClick={() => setConfirmandoCodigo(true)}>
+                                        Regenerar
+                                    </button>
+                                )}
+                            </span>
+                        ) : '—'}
+                    </dd>
                 </div>
                 <div>
                     <dt>Tu rol</dt>
                     <dd>{grupo.rol}</dd>
                 </div>
             </dl>
+
+            {confirmandoCodigo && (
+                <div className="inline-confirm">
+                    <span>
+                        Se creará un código nuevo y <strong>{grupo.codigo_acceso}</strong> dejará de funcionar.
+                        Los integrantes actuales siguen en el grupo.
+                    </span>
+                    <div className="inline-confirm-actions">
+                        <button type="button" className="secondary-button" onClick={() => setConfirmandoCodigo(false)}>
+                            Cancelar
+                        </button>
+                        <button type="button" className="primary-button" onClick={nuevoCodigo} disabled={regenerando}>
+                            {regenerando ? 'Generando...' : 'Generar nuevo código'}
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <h4 className="detail-section-title">
                 Integrantes <span className="count-badge">{cargando ? '…' : integrantes.length}</span>
@@ -347,29 +501,68 @@ function DetalleGrupo({ grupo, onCerrar }: { grupo: Grupo; onCerrar: () => void 
                 <p className="cell-muted">Cargando integrantes...</p>
             ) : (
                 <ul className="detail-list">
-                    {integrantes.map((integrante) => (
-                        <li key={integrante.id}>
-                            <span>{integrante.nombre}</span>
-                            {esAdmin && !esRolAdministrador(integrante.rol) ? (
-                                <select
-                                    aria-label={`Rol de ${integrante.nombre}`}
-                                    value={integrante.rol}
-                                    disabled={actualizando !== null}
-                                    onChange={(evento) => cambiarRol(integrante.id, evento.target.value as RolIntegrante)}
-                                >
-                                    {!['Integrante', 'Secretaria'].includes(integrante.rol) && (
-                                        <option value={integrante.rol}>{integrante.rol}</option>
-                                    )}
-                                    <option value="Integrante">Integrante</option>
-                                    <option value="Secretaria">Secretaria</option>
-                                </select>
-                            ) : (
-                                <span className={`role-badge${esRolAdministrador(integrante.rol) ? ' is-admin' : ''}`}>
-                                    {integrante.rol}
-                                </span>
-                            )}
-                        </li>
-                    ))}
+                    {integrantes.map((integrante) => {
+                        const esAdminIntegrante = esRolAdministrador(integrante.rol);
+                        const puedeGestionar = esAdmin && !esAdminIntegrante && integrante.id !== usuarioId;
+
+                        if (porQuitar?.id === integrante.id) {
+                            return (
+                                <li key={integrante.id} className="is-confirming">
+                                    <span>¿Quitar a <strong>{integrante.nombre}</strong> del grupo?</span>
+                                    <span className="member-actions">
+                                        <button type="button" className="link-button" onClick={() => setPorQuitar(null)}>
+                                            No
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="link-button is-danger"
+                                            disabled={actualizando !== null}
+                                            onClick={() => quitar(integrante)}
+                                        >
+                                            {actualizando === integrante.id ? 'Quitando...' : 'Sí, quitar'}
+                                        </button>
+                                    </span>
+                                </li>
+                            );
+                        }
+
+                        return (
+                            <li key={integrante.id}>
+                                <span>{integrante.nombre}</span>
+                                {puedeGestionar ? (
+                                    <span className="member-actions">
+                                        <select
+                                            aria-label={`Rol de ${integrante.nombre}`}
+                                            value={integrante.rol}
+                                            disabled={actualizando !== null}
+                                            onChange={(evento) => cambiarRol(integrante.id, evento.target.value as RolIntegrante)}
+                                        >
+                                            {!['Integrante', 'Secretaria'].includes(integrante.rol) && (
+                                                <option value={integrante.rol}>{integrante.rol}</option>
+                                            )}
+                                            <option value="Integrante">Integrante</option>
+                                            <option value="Secretaria">Secretaria</option>
+                                        </select>
+                                        <button
+                                            type="button"
+                                            className="link-button is-danger"
+                                            disabled={actualizando !== null}
+                                            onClick={() => {
+                                                setError('');
+                                                setPorQuitar(integrante);
+                                            }}
+                                        >
+                                            Quitar
+                                        </button>
+                                    </span>
+                                ) : (
+                                    <span className={`role-badge${esAdminIntegrante ? ' is-admin' : ''}`}>
+                                        {integrante.rol}
+                                    </span>
+                                )}
+                            </li>
+                        );
+                    })}
                 </ul>
             )}
 

@@ -26,3 +26,13 @@ export function mensajeError(error: unknown, porDefecto: string): string {
 export function esRolAdministrador(rol: string | undefined): boolean {
     return rol?.toLowerCase() === 'administrador';
 }
+
+// Para buscar sin importar mayúsculas ni tildes: "Reunión" coincide con "reunion"
+export function normalizar(texto: string | null | undefined): string {
+    return (texto ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+}
+
+export function coincideBusqueda(busqueda: string, ...campos: (string | null | undefined)[]): boolean {
+    const termino = normalizar(busqueda);
+    return !termino || campos.some((campo) => normalizar(campo).includes(termino));
+}

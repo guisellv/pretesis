@@ -5,3 +5,4 @@ export * from './reunion.entity';
 export * from './formularioReunion.entity';
 export * from './formularioHistorial.entity';
 export * from './recuperacionClave.entity';
+export * from './asistencia.entity';

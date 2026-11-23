@@ -82,3 +82,22 @@ export async function actualizarGrupo(grupoId: number, nombre: string) {
 export async function eliminarGrupo(grupoId: number) {
     await api.delete(`/grupos/${grupoId}`);
 }
+
+// El integrante sale del grupo (el administrador no puede salir)
+export async function salirDelGrupo(grupoId: number) {
+    await api.post(`/grupos/${grupoId}/salir`);
+}
+
+// El administrador quita a un integrante. Devuelve el grupo con la cantidad de integrantes actualizada.
+export async function quitarIntegrante(grupoId: number, usuarioId: number) {
+    const { data } = await api.delete<{ grupo: Grupo }>(`/grupos/${grupoId}/integrantes/${usuarioId}`);
+
+    return data.grupo;
+}
+
+// Genera un nuevo código de acceso; el anterior deja de funcionar
+export async function regenerarCodigo(grupoId: number) {
+    const { data } = await api.post<{ grupo: Grupo }>(`/grupos/${grupoId}/codigo`);
+
+    return data.grupo;
+}

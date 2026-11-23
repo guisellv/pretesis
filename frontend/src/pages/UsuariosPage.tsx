@@ -9,8 +9,9 @@ import {
     type UsuarioDetalle,
     type UsuarioSistema,
 } from '../services/users.service';
-import { esRolAdministrador, fechaCorta, fechaHora, mensajeError } from '../helpers/formato';
+import { coincideBusqueda, esRolAdministrador, fechaCorta, fechaHora, mensajeError } from '../helpers/formato';
 import { ConfirmModal, Modal } from '../components/Modal';
+import { FiltroSelect, FiltrosTabla } from '../components/FiltrosTabla';
 
 type UsuariosPageProps = {
     usuarioActualId: number | null;
@@ -26,6 +27,10 @@ const datosVacios: DatosUsuario = { nombre: '', correo: '', rol: 'usuario', clav
 
 const NOMBRE_ROL = { usuario: 'Usuario', admin: 'Administrador del sistema' } as const;
 
+type FiltroRol = 'todos' | 'usuario' | 'admin';
+
+const filtrosIniciales = { busqueda: '', rol: 'todos' as FiltroRol };
+
 export default function UsuariosPage({ usuarioActualId }: UsuariosPageProps) {
     const [usuarios, setUsuarios] = useState<UsuarioSistema[]>([]);
     const [cargando, setCargando] = useState(true);
@@ -34,6 +39,7 @@ export default function UsuariosPage({ usuarioActualId }: UsuariosPageProps) {
     const [datos, setDatos] = useState<DatosUsuario>(datosVacios);
     const [error, setError] = useState('');
     const [procesando, setProcesando] = useState(false);
+    const [filtros, setFiltros] = useState(filtrosIniciales);
 
     useEffect(() => {
         listarUsuarios()
@@ -109,6 +115,14 @@ export default function UsuariosPage({ usuarioActualId }: UsuariosPageProps) {
         }
     };
 
+    // El número (#) se asigna antes de filtrar, así un usuario mantiene su número al buscar
+    const numerados = usuarios.map((usuario, indice) => ({ usuario, numero: indice + 1 }));
+    const filtrados = numerados.filter(({ usuario }) => (
+        coincideBusqueda(filtros.busqueda, usuario.nombre, usuario.correo)
+        && (filtros.rol === 'todos' || usuario.rol === filtros.rol)
+    ));
+    const hayFiltros = filtros.busqueda !== '' || filtros.rol !== 'todos';
+
     const editandoseASiMismo = dialogo?.tipo === 'modificar' && dialogo.usuario.id === usuarioActualId;
 
     return (
@@ -127,6 +141,27 @@ export default function UsuariosPage({ usuarioActualId }: UsuariosPageProps) {
 
             {errorCarga && <p className="form-error" role="alert">{errorCarga}</p>}
 
+            <FiltrosTabla
+                busqueda={filtros.busqueda}
+                onBusqueda={(busqueda) => setFiltros({ ...filtros, busqueda })}
+                placeholder="Buscar por nombre o correo"
+                total={usuarios.length}
+                visibles={filtrados.length}
+                hayFiltros={hayFiltros}
+                onLimpiar={() => setFiltros(filtrosIniciales)}
+            >
+                <FiltroSelect
+                    etiqueta="Rol"
+                    valor={filtros.rol}
+                    onCambiar={(rol) => setFiltros({ ...filtros, rol })}
+                    opciones={[
+                        { valor: 'todos', texto: 'Todos' },
+                        { valor: 'usuario', texto: 'Usuario' },
+                        { valor: 'admin', texto: 'Administrador del sistema' },
+                    ]}
+                />
+            </FiltrosTabla>
+
             <div className="table-wrapper">
                 <table className="data-table">
                     <thead>
@@ -143,11 +178,15 @@ export default function UsuariosPage({ usuarioActualId }: UsuariosPageProps) {
                     <tbody>
                         {cargando ? (
                             <tr><td colSpan={7} className="table-empty">Cargando usuarios...</td></tr>
-                        ) : usuarios.length === 0 ? (
-                            <tr><td colSpan={7} className="table-empty">No hay usuarios.</td></tr>
-                        ) : usuarios.map((usuario, indice) => (
+                        ) : filtrados.length === 0 ? (
+                            <tr>
+                                <td colSpan={7} className="table-empty">
+                                    {usuarios.length === 0 ? 'No hay usuarios.' : 'Ningún usuario coincide con los filtros.'}
+                                </td>
+                            </tr>
+                        ) : filtrados.map(({ usuario, numero }) => (
                             <tr key={usuario.id}>
-                                <td className="col-id">{indice + 1}</td>
+                                <td className="col-id">{numero}</td>
                                 <td className="cell-strong">
                                     {usuario.nombre}
                                     {usuario.id === usuarioActualId && <span className="role-badge">Tú</span>}

@@ -9,6 +9,7 @@ import {
     obtenerFormularioActa,
     type CambioFormulario,
     type ChoqueReunion,
+    type EstadoAsistencia,
     type FormularioActa,
     type Modalidad,
     type Reunion,
@@ -18,6 +19,7 @@ import type { Grupo } from '../services/groups.service';
 import { tituloValido } from '../helpers/titulo';
 import { esRolAdministrador, fechaLarga, mensajeError } from '../helpers/formato';
 import { Modal } from './Modal';
+import { AsistenciaReunion } from './AsistenciaReunion';
 
 export type ModoReunion = 'ver' | 'editar' | 'crear';
 
@@ -28,6 +30,7 @@ type ReunionModalProps = {
     usuarioId: number;
     onGuardada: (reunion: ReunionConGrupo) => void;
     onEliminada: (id: number) => void;
+    onAsistenciaCambiada: (reunionId: number, estado: EstadoAsistencia, confirmados: number) => void;
     onCerrar: () => void;
 };
 
@@ -89,7 +92,16 @@ function formularioDesdeReunion(reunion: Reunion): FormularioReunion {
     };
 }
 
-export function ReunionModal({ modo, reunion, grupoNueva, usuarioId, onGuardada, onEliminada, onCerrar }: ReunionModalProps) {
+export function ReunionModal({
+    modo,
+    reunion,
+    grupoNueva,
+    usuarioId,
+    onGuardada,
+    onEliminada,
+    onAsistenciaCambiada,
+    onCerrar,
+}: ReunionModalProps) {
     const [formulario, setFormulario] = useState<FormularioReunion>(() => (
         reunion ? formularioDesdeReunion(reunion) : formularioVacio
     ));
@@ -285,6 +297,8 @@ export function ReunionModal({ modo, reunion, grupoNueva, usuarioId, onGuardada,
                 ...guardada,
                 grupo_nombre: nombreGrupo,
                 rol: reunion?.rol ?? grupoNueva?.rol ?? 'Administrador',
+                mi_asistencia: reunion?.mi_asistencia ?? null,
+                confirmados: reunion?.confirmados ?? 0,
             });
         } catch (errorDesconocido: unknown) {
             const respuesta = axios.isAxiosError(errorDesconocido) ? errorDesconocido.response : undefined;
@@ -630,6 +644,13 @@ export function ReunionModal({ modo, reunion, grupoNueva, usuarioId, onGuardada,
                     </ul>
                     <p>Puedes cambiar la fecha u hora, o guardarla de todas formas.</p>
                 </div>
+            )}
+
+            {reunion && (
+                <AsistenciaReunion
+                    reunion={reunion}
+                    onCambio={(estado, confirmados) => onAsistenciaCambiada(reunion.id, estado, confirmados)}
+                />
             )}
 
             {reunion && (puedeEditarActa || acta) && (

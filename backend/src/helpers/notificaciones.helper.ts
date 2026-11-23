@@ -151,7 +151,7 @@ export function notificarReunionCreada(reunion: Reunion, actorId: number): void 
 
         const { texto, html } = armarCorreo(
             'Nueva reunión programada',
-            [`${actor} programó una nueva reunión en el grupo "${grupo}".`],
+            [`${actor} programó una nueva reunión en el grupo "${grupo}".`, 'Entra a la agenda para confirmar si asistirás.'],
             filasReunion(reunion)
         );
 
@@ -162,6 +162,7 @@ export function notificarReunionCreada(reunion: Reunion, actorId: number): void 
 export function notificarReunionModificada(anterior: Reunion, nueva: Reunion, actorId: number): void {
     const cambios = cambiosReunion(anterior, nueva);
     if (cambios.length === 0) return; // se guardó sin cambios
+    const cambioFecha = new Date(anterior.fecha_inicio).getTime() !== new Date(nueva.fecha_inicio).getTime();
 
     enSegundoPlano('reunión modificada', async () => {
         const [para, actor, grupo] = await Promise.all([
@@ -175,6 +176,7 @@ export function notificarReunionModificada(anterior: Reunion, nueva: Reunion, ac
             [
                 `${actor} modificó la reunión "${anterior.titulo}" del grupo "${grupo}".`,
                 `Cambió ${cambios.join(', ')}. Así quedó:`,
+                ...(cambioFecha ? ['Como cambió la fecha, vuelve a confirmar tu asistencia en la agenda.'] : []),
             ],
             filasReunion(nueva)
         );
@@ -269,6 +271,45 @@ export function notificarNuevoIntegrante(grupoId: number, nuevoUsuarioId: number
         );
 
         await enviarCorreo({ para, asunto: `Nuevo integrante en ${grupo}`, texto, html });
+    });
+}
+
+// Aviso a los administradores cuando alguien sale del grupo
+export function notificarIntegranteSalio(grupoId: number, usuarioId: number): void {
+    enSegundoPlano('integrante salió', async () => {
+        const [para, nombre, grupo] = await Promise.all([
+            correosDelGrupo(grupoId, usuarioId, true),
+            nombreUsuario(usuarioId),
+            nombreGrupo(grupoId),
+        ]);
+
+        const { texto, html } = armarCorreo(
+            'Un integrante salió de tu grupo',
+            [`${nombre} salió del grupo "${grupo}".`]
+        );
+
+        await enviarCorreo({ para, asunto: `${nombre} salió de ${grupo}`, texto, html });
+    });
+}
+
+// Aviso al integrante que el administrador quitó del grupo
+export function notificarIntegranteQuitado(grupoId: number, usuarioId: number, actorId: number): void {
+    enSegundoPlano('integrante quitado', async () => {
+        const [correo, actor, grupo] = await Promise.all([
+            pool.query<{ email: string }>('SELECT email FROM users WHERE id = $1', [usuarioId]),
+            nombreUsuario(actorId),
+            nombreGrupo(grupoId),
+        ]);
+
+        const { texto, html } = armarCorreo(
+            'Ya no perteneces a un grupo',
+            [
+                `${actor}, administrador del grupo "${grupo}", te quitó del grupo.`,
+                'Ya no verás sus reuniones. Si crees que es un error, pide un nuevo código de acceso al administrador.',
+            ]
+        );
+
+        await enviarCorreo({ para: correo.rows.map((fila) => fila.email), asunto: `Saliste de ${grupo}`, texto, html });
     });
 }
 
