@@ -15,6 +15,12 @@ export type Reunion = {
 
 export type Modalidad = 'online' | 'presencial';
 
+// Reunión con el nombre del grupo y el rol del usuario en ese grupo (GET /reuniones/mias)
+export type ReunionConGrupo = Reunion & {
+    grupo_nombre: string;
+    rol: string;
+};
+
 // Reunión del grupo con la que se cruza el horario (respuesta 409 del backend)
 export type ChoqueReunion = Pick<Reunion, 'id' | 'titulo' | 'fecha_inicio' | 'fecha_fin'>;
 
@@ -30,6 +36,12 @@ export async function listarReuniones(grupoId: number, usuarioId: number) {
     const { data } = await api.get<ReunionesResponse>('/reuniones', {
         params: { grupo_id: grupoId, usuario_id: usuarioId },
     });
+    return data.reuniones;
+}
+
+// Reuniones de todos los grupos a los que pertenece el usuario
+export async function listarMisReuniones() {
+    const { data } = await api.get<{ reuniones: ReunionConGrupo[] }>('/reuniones/mias');
     return data.reuniones;
 }
 

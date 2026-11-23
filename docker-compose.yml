@@ -1,5 +1,4 @@
 services:
-  # Base de datos PostgreSQL
   db:
     image: postgres:16-alpine
     container_name: pretesis-db
@@ -16,7 +15,6 @@ services:
       timeout: 5s
       retries: 10
 
-  # API (Express + TypeScript)
   backend:
     build:
       context: ./backend
@@ -40,8 +38,8 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      APP_URL: ${APP_URL:-}
 
-  # Página (React + Vite)
   frontend:
     build:
       context: ./frontend

@@ -5,6 +5,7 @@ import { FRONTEND_DIR } from './config/configEnv';
 import authRoutes from './routes/login.routes';
 import gruposRoutes from './routes/grupos.routes';
 import reunionesRoutes from './routes/reuniones.routes';
+import usuariosRoutes from './routes/usuarios.routes';
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.get('/api/health', (req: Request, res: Response) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/grupos', gruposRoutes);
 app.use('/api/reuniones', reunionesRoutes);
+app.use('/api/usuarios', usuariosRoutes);
 
 // En Docker el mismo servidor entrega el frontend compilado.
 // Cualquier ruta que no sea /api devuelve index.html para que funcione el router de React.

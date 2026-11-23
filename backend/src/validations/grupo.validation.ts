@@ -8,6 +8,9 @@ export const crearGrupoSchema = z.object({
     ),
 });
 
+// Modificar el grupo: por ahora solo se puede cambiar el nombre
+export const actualizarGrupoSchema = crearGrupoSchema;
+
 export const unirseGrupoSchema = z.object({
     codigo_acceso: textoObligatorio('El código de acceso es obligatorio').toUpperCase(),
 });
@@ -27,5 +30,6 @@ export const actualizarRolSchema = z.object({
 });
 
 export type CrearGrupoDatos = z.infer<typeof crearGrupoSchema>;
+export type ActualizarGrupoDatos = z.infer<typeof actualizarGrupoSchema>;
 export type UnirseGrupoDatos = z.infer<typeof unirseGrupoSchema>;
 export type ActualizarRolDatos = z.infer<typeof actualizarRolSchema>;

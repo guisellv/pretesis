@@ -15,7 +15,7 @@ export interface AuthenticatedRequest extends Request {
 }
 
 // Exige un token JWT válido en el header "Authorization: Bearer <token>".
-// Se usa en todas las rutas de /api/grupos y /api/reuniones (ver routes/).
+// Se usa en todas las rutas de /api/grupos, /api/reuniones y /api/usuarios (ver routes/).
 export function requireAuth(
     req: AuthenticatedRequest,
     res: Response,

@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { pool } from '../config/database';
 import { FormularioHistorial, FormularioReunion } from '../entities';
+import { notificarActaGuardada } from '../helpers/notificaciones.helper';
 import { AuthenticatedRequest } from '../middleware';
 import { GuardarFormularioDatos } from '../validations';
 
@@ -90,6 +91,8 @@ export async function guardarFormulario(req: AuthenticatedRequest, res: Response
         );
 
         await client.query('COMMIT');
+
+        notificarActaGuardada(reunionId, !existia, usuarioId);
 
         return res.status(200).json({
             formulario: result.rows[0],

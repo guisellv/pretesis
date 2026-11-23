@@ -2,19 +2,40 @@ import { Response } from 'express';
 import { pool } from '../config/database';
 import { Grupo, RolGrupo } from '../entities';
 import { generarCodigoGrupo, largoParaIntento } from '../helpers/codigoGrupo.helper';
+import {
+    correosDelGrupo,
+    notificarCambioRol,
+    notificarGrupoEliminado,
+    notificarGrupoRenombrado,
+    notificarNuevoIntegrante,
+} from '../helpers/notificaciones.helper';
 import { AuthenticatedRequest } from '../middleware';
-import { ActualizarRolDatos, CrearGrupoDatos, UnirseGrupoDatos } from '../validations';
+import { ActualizarGrupoDatos, ActualizarRolDatos, CrearGrupoDatos, UnirseGrupoDatos } from '../validations';
 
 const MAX_INTENTOS_CODIGO = 15;
 
+type GrupoDelUsuario = Grupo & { rol: RolGrupo; cantidad_integrantes: number };
+
+// Datos de un grupo tal como se muestran en la tabla de grupos (incluye el rol del usuario y la cantidad de integrantes)
+const SELECT_GRUPO = `
+    SELECT g.id, g.nombre, g.codigo_acceso, g.creado_en, g.actualizado_en, ug.rol,
+           (SELECT COUNT(*)::int FROM usuarios_grupos x WHERE x.grupo_id = g.id) AS cantidad_integrantes
+    FROM grupos g
+    INNER JOIN usuarios_grupos ug ON ug.grupo_id = g.id`;
+
+async function obtenerGrupoDelUsuario(grupoId: number, usuarioId: number) {
+    const result = await pool.query<GrupoDelUsuario>(
+        `${SELECT_GRUPO} WHERE g.id = $1 AND ug.usuario_id = $2`,
+        [grupoId, usuarioId]
+    );
+
+    return result.rows[0];
+}
+
 export async function listarGrupos(req: AuthenticatedRequest, res: Response): Promise<any> {
     try {
-        const result = await pool.query<Grupo & { rol: RolGrupo }>(
-            `SELECT g.id, g.nombre, g.codigo_acceso, ug.rol
-             FROM grupos g
-             INNER JOIN usuarios_grupos ug ON ug.grupo_id = g.id
-             WHERE ug.usuario_id = $1
-             ORDER BY g.id`,
+        const result = await pool.query<GrupoDelUsuario>(
+            `${SELECT_GRUPO} WHERE ug.usuario_id = $1 ORDER BY g.creado_en, g.id`,
             [req.user!.id]
         );
 
@@ -41,10 +62,10 @@ export async function crearGrupo(req: AuthenticatedRequest, res: Response): Prom
             try {
                 await client.query('BEGIN');
 
-                const result = await client.query<Grupo>(
+                const result = await client.query<Pick<Grupo, 'id'>>(
                     `INSERT INTO grupos (nombre, codigo_acceso)
                      VALUES ($1, $2)
-                     RETURNING id, nombre, codigo_acceso`,
+                     RETURNING id`,
                     [nombre, codigo]
                 );
 
@@ -58,7 +79,7 @@ export async function crearGrupo(req: AuthenticatedRequest, res: Response): Prom
 
                 return res.status(201).json({
                     mensaje: 'Grupo creado exitosamente',
-                    grupo: { ...result.rows[0], rol: 'Administrador' }
+                    grupo: await obtenerGrupoDelUsuario(result.rows[0].id, usuarioId)
                 });
             } catch (error: any) {
                 await client.query('ROLLBACK');
@@ -108,14 +129,11 @@ export async function unirseGrupo(req: AuthenticatedRequest, res: Response): Pro
             [usuarioId, grupo.id]
         );
 
+        notificarNuevoIntegrante(grupo.id, usuarioId);
+
         return res.status(200).json({
             mensaje: `Te has unido exitosamente a: ${grupo.nombre}`,
-            grupo: {
-                id: grupo.id,
-                nombre: grupo.nombre,
-                codigo_acceso,
-                rol: 'Integrante'
-            }
+            grupo: await obtenerGrupoDelUsuario(grupo.id, usuarioId)
         });
     } catch (error: any) {
         if (error.code === '23505') {
@@ -135,6 +153,44 @@ export async function unirseGrupo(req: AuthenticatedRequest, res: Response): Pro
         return res.status(500).json({
             error: 'Error al unirse al grupo'
         });
+    }
+}
+
+// requireAdmin ya verificó que quien hace el cambio es el administrador del grupo
+export async function actualizarGrupo(req: AuthenticatedRequest, res: Response): Promise<any> {
+    try {
+        const { nombre } = req.body as ActualizarGrupoDatos;
+
+        const anterior = await pool.query<{ nombre: string }>('SELECT nombre FROM grupos WHERE id = $1', [req.grupo!.id]);
+
+        await pool.query(
+            'UPDATE grupos SET nombre = $1, actualizado_en = NOW() WHERE id = $2',
+            [nombre, req.grupo!.id]
+        );
+
+        notificarGrupoRenombrado(req.grupo!.id, anterior.rows[0].nombre, nombre, req.user!.id);
+
+        return res.status(200).json({ grupo: await obtenerGrupoDelUsuario(req.grupo!.id, req.user!.id) });
+    } catch (error) {
+        console.error('Error al actualizar grupo:', error);
+        return res.status(500).json({ error: 'No se pudo actualizar el grupo' });
+    }
+}
+
+// requireAdmin ya verificó que quien elimina es el administrador del grupo.
+// Se borran en cascada sus integrantes, reuniones y formularios.
+export async function eliminarGrupo(req: AuthenticatedRequest, res: Response): Promise<any> {
+    try {
+        // Los correos de los integrantes se leen antes de borrar; después ya no existen
+        const para = await correosDelGrupo(req.grupo!.id, req.user!.id);
+        const result = await pool.query<{ nombre: string }>('DELETE FROM grupos WHERE id = $1 RETURNING nombre', [req.grupo!.id]);
+
+        if (result.rows[0]) notificarGrupoEliminado(result.rows[0].nombre, para, req.user!.id);
+
+        return res.status(204).send();
+    } catch (error) {
+        console.error('Error al eliminar grupo:', error);
+        return res.status(500).json({ error: 'No se pudo eliminar el grupo' });
     }
 }
 
@@ -176,6 +232,8 @@ export async function actualizarRolIntegrante(req: AuthenticatedRequest, res: Re
         if ((result.rowCount ?? 0) === 0) {
             return res.status(404).json({ error: 'El integrante no existe en este grupo' });
         }
+
+        notificarCambioRol(req.grupo!.id, usuarioId, rol, req.user!.id);
 
         return res.status(200).json({ integrante: result.rows[0] });
     } catch (error) {

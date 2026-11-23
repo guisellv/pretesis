@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { correoSchema, textoObligatorio } from './comun.validation';
 
 // bcrypt solo considera los primeros 72 bytes de la contraseña
-const claveNuevaSchema = z
+export const claveNuevaSchema = z
     .string({ error: 'La contraseña es obligatoria' })
     .min(6, 'La contraseña debe tener al menos 6 caracteres')
     .max(72, 'La contraseña no puede superar los 72 caracteres');

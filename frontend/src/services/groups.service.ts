@@ -4,7 +4,10 @@ export type Grupo = {
     id: number;
     nombre: string;
     codigo_acceso: string;
-    rol?: string;
+    creado_en: string;
+    actualizado_en: string;
+    rol: string; // rol del usuario con sesión en este grupo
+    cantidad_integrantes: number;
 };
 
 type CrearGrupoResponse = {
@@ -68,4 +71,14 @@ export async function actualizarRolIntegrante(grupoId: number, usuarioId: number
     );
 
     return data.integrante;
+}
+
+export async function actualizarGrupo(grupoId: number, nombre: string) {
+    const { data } = await api.put<{ grupo: Grupo }>(`/grupos/${grupoId}`, { nombre });
+
+    return data.grupo;
+}
+
+export async function eliminarGrupo(grupoId: number) {
+    await api.delete(`/grupos/${grupoId}`);
 }
