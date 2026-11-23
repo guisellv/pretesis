@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
     listarReuniones,
+    listarMisReuniones,
     crearReunion,
     actualizarReunion,
     eliminarReunion,
@@ -22,6 +23,8 @@ router.use(requireAuth);
 
 // Reuniones: todos los del grupo las ven; solo el administrador las crea, edita y elimina
 router.get('/', validar({ query: listarReunionesQuerySchema }), requireMiembro, listarReuniones);
+// Todas las reuniones de los grupos a los que pertenece el usuario
+router.get('/mias', listarMisReuniones);
 router.post('/', validar({ body: crearReunionSchema }), requireAdmin, crearReunion);
 router.put('/:id', validar({ params: reunionParamsSchema, body: actualizarReunionSchema }), requireAdmin, actualizarReunion);
 router.delete('/:id', validar({ params: reunionParamsSchema }), requireAdmin, eliminarReunion);

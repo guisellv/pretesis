@@ -36,7 +36,10 @@ export const DB_DATABASE = obligatoria('DATABASE');
 export const JWT_SECRET = obligatoria('JWT_SECRET');
 export const JWT_EXPIRES_IN = '8h';
 
-// Correo (SMTP). Si no se configuran, los códigos de recuperación se muestran en la consola.
+// Dirección de la aplicación. Si se configura, los correos de aviso incluyen un botón para entrar.
+export const APP_URL = opcional('APP_URL');
+
+// Correo (SMTP). Si no se configuran, los códigos de recuperación y los avisos se muestran en la consola.
 export const SMTP_HOST = opcional('SMTP_HOST');
 export const SMTP_PORT = Number(opcional('SMTP_PORT', '587'));
 export const SMTP_USER = opcional('SMTP_USER');

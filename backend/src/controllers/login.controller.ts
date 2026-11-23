@@ -3,6 +3,7 @@ import { randomInt } from 'crypto';
 import { comparePassword, encryptPassword } from '../helpers/bcrypt.helper';
 import { enviarCodigoRecuperacion } from '../helpers/mail.helper';
 import { generarToken } from '../helpers/jwt.helper';
+import { notificarCuentaCreada } from '../helpers/notificaciones.helper';
 import { pool } from '../config/database';
 import { RecuperacionClave, Usuario } from '../entities';
 import { LoginDatos, RegistroDatos, RestablecerClaveDatos, SolicitarRecuperacionDatos } from '../validations';
@@ -21,6 +22,8 @@ export async function registrarUsuario(req: Request, res: Response): Promise<any
              RETURNING id, "nombreCompleto" AS nombre, email AS correo`,
             [nombre, correo, claveHash]
         );
+
+        notificarCuentaCreada({ ...result.rows[0], rol: 'usuario' }, null);
 
         return res.status(201).json({
             mensaje: 'Usuario registrado exitosamente',

@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { pool } from '../config/database';
 import { Reunion } from '../entities';
 import { esFechaPasada } from '../helpers/fecha.helper';
+import { notificarReunionCreada, notificarReunionEliminada, notificarReunionModificada } from '../helpers/notificaciones.helper';
 import { AuthenticatedRequest } from '../middleware';
 import { ActualizarReunionDatos, CrearReunionDatos } from '../validations';
 
@@ -43,6 +44,28 @@ export async function listarReuniones(req: AuthenticatedRequest, res: Response):
     }
 }
 
+// Reuniones de todos los grupos del usuario, con el nombre del grupo y su rol en él
+// (para la tabla de Reuniones y el calendario de Inicio)
+export async function listarMisReuniones(req: AuthenticatedRequest, res: Response): Promise<any> {
+    try {
+        const result = await pool.query<Reunion & { grupo_nombre: string; rol: string }>(
+            `SELECT ${COLUMNAS_REUNION.split(', ').map((columna) => `r.${columna}`).join(', ')},
+                    g.nombre AS grupo_nombre, ug.rol
+             FROM reuniones r
+             INNER JOIN grupos g ON g.id = r.grupo_id
+             INNER JOIN usuarios_grupos ug ON ug.grupo_id = r.grupo_id
+             WHERE ug.usuario_id = $1
+             ORDER BY r.fecha_inicio`,
+            [req.user!.id]
+        );
+
+        return res.status(200).json({ reuniones: result.rows });
+    } catch (error) {
+        console.error('Error al listar mis reuniones:', error);
+        return res.status(500).json({ error: 'No se pudieron cargar las reuniones' });
+    }
+}
+
 export async function crearReunion(req: AuthenticatedRequest, res: Response): Promise<any> {
     try {
         const datos = req.body as CrearReunionDatos;
@@ -72,6 +95,8 @@ export async function crearReunion(req: AuthenticatedRequest, res: Response): Pr
             ]
         );
 
+        notificarReunionCreada(result.rows[0], req.user!.id);
+
         return res.status(201).json({ reunion: result.rows[0] });
     } catch (error) {
         console.error('Error al crear reunión:', error);
@@ -85,13 +110,14 @@ export async function actualizarReunion(req: AuthenticatedRequest, res: Response
         const datos = req.body as ActualizarReunionDatos;
         const grupoId = req.grupo!.id;
 
-        const reunion = await pool.query<{ misma_fecha: boolean }>(
-            'SELECT fecha_inicio = $2::timestamp AS misma_fecha FROM reuniones WHERE id = $1',
+        const reunion = await pool.query<Reunion & { misma_fecha: boolean }>(
+            `SELECT ${COLUMNAS_REUNION}, fecha_inicio = $2::timestamp AS misma_fecha FROM reuniones WHERE id = $1`,
             [reunionId, datos.fecha_inicio]
         );
+        const { misma_fecha, ...anterior } = reunion.rows[0];
 
         // Si no se movió la fecha, se permite editar una reunión que ya pasó (ej. corregir el título)
-        if (!reunion.rows[0].misma_fecha) {
+        if (!misma_fecha) {
             if (esFechaPasada(datos.fecha_inicio)) {
                 return res.status(400).json({ error: 'No puedes mover la reunión a una fecha u hora que ya pasó' });
             }
@@ -120,6 +146,8 @@ export async function actualizarReunion(req: AuthenticatedRequest, res: Response
             ]
         );
 
+        notificarReunionModificada(anterior, result.rows[0], req.user!.id);
+
         return res.status(200).json({ reunion: result.rows[0] });
     } catch (error) {
         console.error('Error al actualizar reunión:', error);
@@ -129,7 +157,13 @@ export async function actualizarReunion(req: AuthenticatedRequest, res: Response
 
 export async function eliminarReunion(req: AuthenticatedRequest, res: Response): Promise<any> {
     try {
-        await pool.query('DELETE FROM reuniones WHERE id = $1', [Number(req.params.id)]);
+        const result = await pool.query<Reunion>(
+            `DELETE FROM reuniones WHERE id = $1 RETURNING ${COLUMNAS_REUNION}`,
+            [Number(req.params.id)]
+        );
+
+        if (result.rows[0]) notificarReunionEliminada(result.rows[0], req.user!.id);
+
         return res.status(204).send();
     } catch (error) {
         console.error('Error al eliminar reunión:', error);

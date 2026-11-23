@@ -133,7 +133,7 @@ export function AuthForm({ onLogin }: AuthFormProps) {
         <main className="auth-shell">
             <section className="auth-card">
                 <h1>Agenda Comunitaria</h1>
-                <h2 aria-hidden={modo === 'login'}>{modo === 'login' ? ' ' : TITULOS[modo]}</h2>
+                {modo !== 'login' && <h2>{TITULOS[modo]}</h2>}
 
                 {modo === 'recuperar' && (
                     <p className="auth-hint">Ingresa tu correo y te enviaremos un código para crear una nueva contraseña.</p>
@@ -192,12 +192,6 @@ export function AuthForm({ onLogin }: AuthFormProps) {
                         />
                     )}
 
-                    {modo === 'login' && (
-                        <button className="auth-link auth-forgot" type="button" onClick={() => cambiarModo('recuperar')}>
-                            ¿Olvidaste tu contraseña?
-                        </button>
-                    )}
-
                     <button className="auth-submit" type="submit" disabled={enviando}>
                         {enviando ? 'Procesando...' : BOTONES[modo]}
                     </button>
@@ -208,6 +202,12 @@ export function AuthForm({ onLogin }: AuthFormProps) {
                 {(modo === 'login' || modo === 'registro') && (
                     <button className="auth-switch" type="button" onClick={() => cambiarModo(modo === 'login' ? 'registro' : 'login')}>
                         {modo === 'login' ? 'Crear una cuenta' : 'Ya tengo una cuenta'}
+                    </button>
+                )}
+
+                {modo === 'login' && (
+                    <button className="auth-switch auth-forgot" type="button" onClick={() => cambiarModo('recuperar')}>
+                        ¿Olvidaste tu contraseña?
                     </button>
                 )}
 
