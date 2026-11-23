@@ -8,9 +8,10 @@ import { migracion as m006 } from './006_crear_formularios';
 import { migracion as m007 } from './007_crear_recuperacion_clave';
 import { migracion as m008 } from './008_ampliar_codigo_acceso';
 import { migracion as m009 } from './009_fechas_grupos_usuarios';
+import { migracion as m010 } from './010_crear_asistencias';
 
-// Orden en que se aplican. Para un cambio nuevo en la base: crear 009_... y agregarlo al final.
+// Orden en que se aplican. Para un cambio nuevo en la base: crear 011_... y agregarlo al final.
 // Nunca modificar una migración que ya se aplicó; siempre crear una nueva.
-export const migraciones: Migracion[] = [m001, m002, m003, m004, m005, m006, m007, m008, m009];
+export const migraciones: Migracion[] = [m001, m002, m003, m004, m005, m006, m007, m008, m009, m010];
 
 export type { Migracion };

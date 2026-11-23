@@ -7,6 +7,8 @@ import {
     notificarCambioRol,
     notificarGrupoEliminado,
     notificarGrupoRenombrado,
+    notificarIntegranteQuitado,
+    notificarIntegranteSalio,
     notificarNuevoIntegrante,
 } from '../helpers/notificaciones.helper';
 import { AuthenticatedRequest } from '../middleware';
@@ -191,6 +193,97 @@ export async function eliminarGrupo(req: AuthenticatedRequest, res: Response): P
     } catch (error) {
         console.error('Error al eliminar grupo:', error);
         return res.status(500).json({ error: 'No se pudo eliminar el grupo' });
+    }
+}
+
+// Saca al usuario del grupo y borra sus confirmaciones de asistencia a las reuniones de ese grupo.
+// Nunca saca al administrador. Devuelve false si no había nada que quitar.
+async function sacarDelGrupo(grupoId: number, usuarioId: number): Promise<boolean> {
+    const result = await pool.query(
+        `WITH quitado AS (
+             DELETE FROM usuarios_grupos
+             WHERE grupo_id = $1 AND usuario_id = $2 AND LOWER(rol) <> 'administrador'
+             RETURNING usuario_id
+         ), asistencias_borradas AS (
+             DELETE FROM asistencias a
+             USING reuniones r
+             WHERE a.reunion_id = r.id AND r.grupo_id = $1 AND a.usuario_id IN (SELECT usuario_id FROM quitado)
+         )
+         SELECT usuario_id FROM quitado`,
+        [grupoId, usuarioId]
+    );
+
+    return (result.rowCount ?? 0) > 0;
+}
+
+// requireMiembro ya verificó que el usuario pertenece al grupo.
+// El administrador no puede salir: el grupo quedaría sin nadie que lo gestione (debe eliminarlo).
+export async function salirDelGrupo(req: AuthenticatedRequest, res: Response): Promise<any> {
+    try {
+        if (req.grupo!.rol.toLowerCase() === 'administrador') {
+            return res.status(400).json({
+                error: 'Eres el administrador del grupo, no puedes salir. Si ya no se usará, elimina el grupo.'
+            });
+        }
+
+        await sacarDelGrupo(req.grupo!.id, req.user!.id);
+        notificarIntegranteSalio(req.grupo!.id, req.user!.id);
+
+        return res.status(204).send();
+    } catch (error) {
+        console.error('Error al salir del grupo:', error);
+        return res.status(500).json({ error: 'No se pudo salir del grupo' });
+    }
+}
+
+// requireAdmin ya verificó que quien quita es el administrador del grupo
+export async function quitarIntegrante(req: AuthenticatedRequest, res: Response): Promise<any> {
+    try {
+        const usuarioId = Number(req.params.usuarioId);
+
+        if (usuarioId === req.user!.id) {
+            return res.status(400).json({ error: 'No puedes quitarte a ti mismo del grupo' });
+        }
+
+        const quitado = await sacarDelGrupo(req.grupo!.id, usuarioId);
+
+        if (!quitado) {
+            return res.status(404).json({ error: 'El integrante no existe en este grupo' });
+        }
+
+        notificarIntegranteQuitado(req.grupo!.id, usuarioId, req.user!.id);
+
+        return res.status(200).json({ grupo: await obtenerGrupoDelUsuario(req.grupo!.id, req.user!.id) });
+    } catch (error) {
+        console.error('Error al quitar integrante:', error);
+        return res.status(500).json({ error: 'No se pudo quitar al integrante' });
+    }
+}
+
+// requireAdmin ya verificó que quien lo pide es el administrador. El código anterior deja de funcionar.
+export async function regenerarCodigo(req: AuthenticatedRequest, res: Response): Promise<any> {
+    try {
+        for (let intento = 0; intento < MAX_INTENTOS_CODIGO; intento++) {
+            const codigo = generarCodigoGrupo(largoParaIntento(intento));
+
+            try {
+                await pool.query(
+                    'UPDATE grupos SET codigo_acceso = $1, actualizado_en = NOW() WHERE id = $2',
+                    [codigo, req.grupo!.id]
+                );
+
+                return res.status(200).json({ grupo: await obtenerGrupoDelUsuario(req.grupo!.id, req.user!.id) });
+            } catch (error: any) {
+                // Código repetido: se intenta con otro
+                if (error.code === '23505' && error.constraint === 'grupos_codigo_acceso_key') continue;
+                throw error;
+            }
+        }
+
+        return res.status(500).json({ error: 'No se pudo generar un código único. Inténtalo nuevamente' });
+    } catch (error) {
+        console.error('Error al regenerar el código:', error);
+        return res.status(500).json({ error: 'No se pudo regenerar el código' });
     }
 }
 

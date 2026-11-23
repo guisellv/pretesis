@@ -1092,6 +1092,252 @@
 }
 
 /* ==========================================================
+   Búsqueda y filtros de las tablas
+   ========================================================== */
+.table-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.6rem 0.8rem;
+    margin-bottom: 1rem;
+    padding: 0.8rem;
+    border: 1px solid var(--c-rosa);
+    border-radius: var(--radio);
+    background: var(--c-fondo-claro);
+}
+
+.table-search {
+    position: relative;
+    flex: 1 1 16rem;
+    min-width: 0;
+}
+
+.table-search svg {
+    position: absolute;
+    top: 50%;
+    left: 0.7rem;
+    width: 1rem;
+    height: 1rem;
+    transform: translateY(-50%);
+    fill: none;
+    stroke: var(--c-gris);
+    stroke-width: 2;
+    stroke-linecap: round;
+    pointer-events: none;
+}
+
+.table-search input,
+.table-filter-select select {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--c-malva);
+    border-radius: 0.5rem;
+    background: var(--c-blanco);
+    color: var(--c-oscuro);
+    font: inherit;
+    font-size: 0.9rem;
+}
+
+.table-search input {
+    padding-left: 2.1rem;
+}
+
+.table-search input:focus,
+.table-filter-select select:focus {
+    border-color: var(--c-gris);
+    outline: 2px solid rgb(88 84 91 / 25%);
+    outline-offset: 1px;
+}
+
+.table-filter-select {
+    display: grid;
+    gap: 0.2rem;
+    min-width: 9rem;
+}
+
+.table-filter-select span {
+    color: var(--c-gris);
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.table-filters-info {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-left: auto;
+    min-height: 2.2rem;
+    color: var(--c-gris);
+    font-size: 0.82rem;
+    white-space: nowrap;
+}
+
+/* ==========================================================
+   Asistencia a reuniones
+   ========================================================== */
+.attendance-badge {
+    display: inline-block;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.attendance-badge.is-asistire {
+    background: #e3f0e4;
+    color: #2f6b3a;
+}
+
+.attendance-badge.is-no_asistire {
+    background: #f6e4e2;
+    color: var(--c-peligro);
+}
+
+.attendance-badge.is-pendiente {
+    background: var(--c-fondo);
+    color: var(--c-gris);
+}
+
+.attendance-cell {
+    display: grid;
+    justify-items: start;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+}
+
+.attendance-card {
+    display: grid;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+    padding: 0.8rem 1rem;
+    border: 1px solid var(--c-rosa);
+    border-radius: 0.5rem;
+    background: var(--c-fondo);
+}
+
+.attendance-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.attendance-head strong {
+    font-size: 0.9rem;
+}
+
+.attendance-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.attendance-options {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.attendance-options > span {
+    margin-right: 0.25rem;
+    color: var(--c-gris);
+    font-size: 0.85rem;
+}
+
+.attendance-option {
+    padding: 0.4rem 0.9rem;
+    border: 1px solid var(--c-malva);
+    border-radius: 999px;
+    background: var(--c-blanco);
+    color: var(--c-oscuro);
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.attendance-option:hover:not(:disabled) {
+    border-color: var(--c-gris);
+}
+
+.attendance-option.is-yes.is-selected {
+    border-color: #2f6b3a;
+    background: #2f6b3a;
+    color: var(--c-blanco);
+}
+
+.attendance-option.is-no.is-selected {
+    border-color: var(--c-peligro);
+    background: var(--c-peligro);
+    color: var(--c-blanco);
+}
+
+.attendance-option:disabled {
+    cursor: wait;
+    opacity: 0.7;
+}
+
+.attendance-note {
+    margin: 0;
+    color: var(--c-gris);
+    font-size: 0.85rem;
+}
+
+.attendance-toggle {
+    justify-self: start;
+    font-size: 0.85rem;
+}
+
+.attendance-card .detail-list {
+    margin: 0;
+}
+
+.attendance-card .detail-list li {
+    background: var(--c-blanco);
+}
+
+/* ==========================================================
+   Detalle del grupo: código e integrantes
+   ========================================================== */
+.code-row {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.inline-confirm {
+    display: grid;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+    padding: 0.75rem 0.9rem;
+    border-left: 3px solid var(--c-gris);
+    border-radius: var(--radio-chico);
+    background: var(--c-fondo);
+    font-size: 0.88rem;
+}
+
+.inline-confirm-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.member-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.detail-list li.is-confirming {
+    background: #f6e4e2;
+}
+
+/* ==========================================================
    Pantallas chicas
    ========================================================== */
 @media (max-width: 760px) {
@@ -1125,6 +1371,14 @@
 
     .detail-grid {
         grid-template-columns: 1fr;
+    }
+
+    .table-filter-select {
+        flex: 1 1 8rem;
+    }
+
+    .table-filters-info {
+        margin-left: 0;
     }
 }
 

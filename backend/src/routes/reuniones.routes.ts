@@ -7,9 +7,11 @@ import {
     eliminarReunion,
 } from '../controllers/reuniones.controller';
 import { obtenerFormulario, guardarFormulario } from '../controllers/formularios.controller';
+import { confirmarAsistencia, obtenerAsistencia } from '../controllers/asistencias.controller';
 import { requireAdmin, requireAuth, requireEditorFormulario, requireMiembro, validar } from '../middleware';
 import {
     actualizarReunionSchema,
+    confirmarAsistenciaSchema,
     crearReunionSchema,
     guardarFormularioSchema,
     listarReunionesQuerySchema,
@@ -36,6 +38,15 @@ router.put(
     validar({ params: reunionParamsSchema, body: guardarFormularioSchema }),
     requireEditorFormulario,
     guardarFormulario
+);
+
+// Asistencia: cualquier integrante del grupo ve quién asistirá y confirma la suya
+router.get('/:id/asistencia', validar({ params: reunionParamsSchema }), requireMiembro, obtenerAsistencia);
+router.put(
+    '/:id/asistencia',
+    validar({ params: reunionParamsSchema, body: confirmarAsistenciaSchema }),
+    requireMiembro,
+    confirmarAsistencia
 );
 
 export default router;

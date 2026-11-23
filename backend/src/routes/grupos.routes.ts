@@ -6,7 +6,10 @@ import {
     listarIntegrantes,
     actualizarRolIntegrante,
     actualizarGrupo,
-    eliminarGrupo
+    eliminarGrupo,
+    salirDelGrupo,
+    quitarIntegrante,
+    regenerarCodigo
 } from '../controllers/grupos.controller';
 import { requireAdmin, requireAuth, requireMiembro, validar } from '../middleware';
 import {
@@ -35,6 +38,10 @@ router.put(
     actualizarGrupo
 );
 router.delete('/:grupoId', validar({ params: grupoParamsSchema }), requireAdmin, eliminarGrupo);
+// Nuevo código de acceso (el anterior deja de funcionar): solo el administrador
+router.post('/:grupoId/codigo', validar({ params: grupoParamsSchema }), requireAdmin, regenerarCodigo);
+// Salir del grupo: cualquier integrante menos el administrador
+router.post('/:grupoId/salir', validar({ params: grupoParamsSchema }), requireMiembro, salirDelGrupo);
 
 router.get(
     '/:grupoId/integrantes',
@@ -47,6 +54,14 @@ router.put(
     validar({ params: integranteParamsSchema, body: actualizarRolSchema }),
     requireAdmin,
     actualizarRolIntegrante
+);
+
+// Quitar a un integrante del grupo: solo el administrador
+router.delete(
+    '/:grupoId/integrantes/:usuarioId',
+    validar({ params: integranteParamsSchema }),
+    requireAdmin,
+    quitarIntegrante
 );
 
 export default router;

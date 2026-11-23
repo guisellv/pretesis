@@ -34,14 +34,24 @@ type ConfirmModalProps = {
     titulo: string;
     mensaje: ReactNode;
     textoConfirmar: string;
+    textoProcesando?: string;
     procesando?: boolean;
     error?: string;
     onConfirmar: () => void;
     onCerrar: () => void;
 };
 
-// Confirmación antes de una acción que no se puede deshacer (eliminar)
-export function ConfirmModal({ titulo, mensaje, textoConfirmar, procesando, error, onConfirmar, onCerrar }: ConfirmModalProps) {
+// Confirmación antes de una acción que no se puede deshacer (eliminar, salir de un grupo)
+export function ConfirmModal({
+    titulo,
+    mensaje,
+    textoConfirmar,
+    textoProcesando = 'Eliminando...',
+    procesando,
+    error,
+    onConfirmar,
+    onCerrar,
+}: ConfirmModalProps) {
     return (
         <Modal
             titulo={titulo}
@@ -52,7 +62,7 @@ export function ConfirmModal({ titulo, mensaje, textoConfirmar, procesando, erro
                         Cancelar
                     </button>
                     <button type="button" className="danger-solid-button" onClick={onConfirmar} disabled={procesando}>
-                        {procesando ? 'Eliminando...' : textoConfirmar}
+                        {procesando ? textoProcesando : textoConfirmar}
                     </button>
                 </>
             )}
